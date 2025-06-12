@@ -43,8 +43,12 @@ let clearBtn = document.createElement('button');
 clearBtn.textContent = 'Clear';
 clearBtn.type = 'button';
 clearBtn.className = 'ml-2';
-clearBtn.addEventListener('click', clearAll);
-actionsDiv.appendChild(clearBtn);
+
+// Only append if actionsDiv exists to avoid JS error
+if (actionsDiv) {
+  clearBtn.addEventListener('click', clearAll);
+  actionsDiv.appendChild(clearBtn);
+}
 
 // Update the file name display when a file is selected
 function handleFileUpload(event) {

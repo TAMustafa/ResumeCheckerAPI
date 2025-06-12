@@ -1,3 +1,109 @@
+/* --- Pico.css Customization & Best Practices Review --- */
+
+/* 1. Use Pico's color variables for consistency */
+:root {
+  --primary: #1a73e8;
+  --primary-hover: #1765cc;
+  --secondary: #fbbc04;
+  --success: #43a047;
+  --error: #d93025;
+  --muted-color: #888;
+  --card-background-color: #fff;
+  --card-border-color: #e0e0e0;
+  --font-size: 14px;
+  --spacing: 0.5rem;
+  --border-radius: 0.25rem;
+  --popup-width: 380px;
+  --popup-max-height: 600px;
+  --popup-padding: 1rem;
+}
+
+/* 2. Use Pico's spacing and border-radius for all custom elements */
+.score-circle,
+.score-text {
+  border-radius: var(--border-radius, 0.25rem);
+}
+
+/* 3. Use Pico's button and form styles, but avoid overriding too much */
+.button,
+button {
+  width: 100%;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  font-size: 1em;
+}
+
+/* 4. Responsive grid: use Pico's grid classes and spacing */
+.grid {
+  gap: var(--spacing, 0.5rem);
+  margin-bottom: var(--spacing, 0.5rem);
+}
+
+/* 5. Use Pico's utility classes for margin/padding where possible */
+.mt-2 {
+  margin-top: 0.5rem !important;
+}
+.ml-2 {
+  margin-left: 0.5rem !important;
+}
+
+/* 6. Use semantic HTML for accessibility (already done in popup.html) */
+
+/* 7. Custom summary badges: use Pico's color palette */
+#summary-div span {
+  margin-right: 4px;
+  margin-bottom: 2px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  display: inline-block;
+}
+#summary-div strong {
+  color: var(--primary);
+}
+
+/* 8. Progress bars: use Pico's color and border-radius */
+progress {
+  background-color: var(--card-border-color);
+  border-radius: 2rem;
+  height: 0.5rem;
+}
+progress::-webkit-progress-bar {
+  background-color: var(--card-border-color);
+}
+progress::-webkit-progress-value {
+  background-color: var(--primary);
+  transition: width 0.3s ease;
+}
+
+/* 9. Lists: use Pico's font size and spacing */
+ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+ul li {
+  margin-bottom: 0.25rem;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+ul li[style*="color: #888"] {
+  font-style: italic;
+}
+
+/* 10. Spinner: use Pico's color for border-top */
+.spinner {
+  border-top-color: var(--primary);
+}
+
+/* 11. Accessibility: ensure sufficient color contrast (already good with Pico defaults) */
+
+/* 12. Hide scrollbar for a cleaner look (already present) */
+
 /* Override Pico.css variables for Chrome Extension */
 :root {
   --font-size: 14px;
@@ -122,12 +228,13 @@ progress::-webkit-progress-value {
 
 /* Lists */
 ul {
-  margin: 0;
+  margin: 0.5rem 0;
   padding-left: 1.25rem;
 }
 
 ul li {
   margin-bottom: 0.25rem;
+  font-size: 0.95em;
   line-height: 1.4;
 }
 
@@ -138,7 +245,7 @@ ul li {
   height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  border-top-color: white;
+  border-top-color: var(--primary);
   animation: spin 1s ease-in-out infinite;
   margin-left: 0.5rem;
   vertical-align: middle;
@@ -151,71 +258,6 @@ ul li {
 /* Utility Classes */
 .hidden {
   display: none !important;
-}
-
-/* Responsive Grid Adjustments */
-.grid {
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-/* Form Elements */
-textarea {
-  resize: vertical;
-  min-height: 100px;
-  max-height: 200px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Buttons */
-.button,
-button {
-  width: 100%;
-  margin: 0.5rem 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Results Section */
-#results {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--card-border-color);
-}
-
-/* Lists */
-ul {
-  margin: 0.5rem 0;
-  padding-left: 1.25rem;
-}
-
-ul li {
-  margin-bottom: 0.25rem;
-  font-size: 0.9em;
-  line-height: 1.4;
-}
-
-/* Utility Classes */
-.hidden {
-  display: none !important;
-}
-
-/* Loading Spinner */
-.spinner {
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-  margin-left: 0.5rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* Fix for Pico button with SVG icon */
@@ -237,6 +279,12 @@ ul li {
 #summary-div span {
   margin-right: 4px;
   margin-bottom: 2px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  display: inline-block;
 }
 
 ul li {
