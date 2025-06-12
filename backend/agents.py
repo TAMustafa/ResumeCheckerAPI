@@ -55,6 +55,11 @@ async def analyze_job_vacancy(vacancy_text: str) -> JobRequirements:
         return result.output
     except ValidationError as e:
         logfire.error(f"Validation error in analyze_job_vacancy: {e}")
+        if hasattr(e, 'json'):
+            logfire.error(f"Raw LLM output: {getattr(e, 'json', lambda: None)()}")
+        raise
+    except Exception as e:
+        logfire.error(f"Unexpected error in analyze_job_vacancy: {e}")
         raise
 
 async def analyze_cv(pdf_path: Path) -> CVAnalysis:
@@ -69,6 +74,11 @@ async def analyze_cv(pdf_path: Path) -> CVAnalysis:
         return result.output
     except ValidationError as e:
         logfire.error(f"Validation error in analyze_cv: {e}")
+        if hasattr(e, 'json'):
+            logfire.error(f"Raw LLM output: {getattr(e, 'json', lambda: None)()}")
+        raise
+    except Exception as e:
+        logfire.error(f"Unexpected error in analyze_cv: {e}")
         raise
 
 async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequirements) -> MatchingScore:
@@ -82,4 +92,9 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
         return result.output
     except ValidationError as e:
         logfire.error(f"Validation error in score_cv_match: {e}")
+        if hasattr(e, 'json'):
+            logfire.error(f"Raw LLM output: {getattr(e, 'json', lambda: None)()}")
+        raise
+    except Exception as e:
+        logfire.error(f"Unexpected error in score_cv_match: {e}")
         raise

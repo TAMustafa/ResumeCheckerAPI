@@ -195,3 +195,31 @@ li {
 .mb-2 {
   margin-bottom: 8px;
 }
+
+.actions button.ml-2 {
+  margin-left: 8px;
+}
+
+#summary-div {
+  margin: 8px 0 12px 0;
+  font-size: 13px;
+  color: #444;
+}
+
+#summary-div strong {
+  color: #1a73e8;
+}
+
+#summary-div span {
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+
+ul li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+ul li[style*="color: #888"] {
+  font-style: italic;
+}

@@ -66,4 +66,6 @@ class MatchingScore(BaseModel):
     matched_skills: List[str] = Field(default_factory=list)
     matched_qualifications: List[str] = Field(default_factory=list)
     matched_languages: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list, description="Key strengths identified in the CV")
+    gaps: List[str] = Field(default_factory=list, description="Key areas for improvement or missing requirements")
     model_config = {'strict': True}
