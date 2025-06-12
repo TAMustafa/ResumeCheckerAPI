@@ -52,13 +52,25 @@ function handleFileUpload(event) {
   if (file) {
     if (file.type === 'application/pdf') {
       cvFile = file;
-      fileName.textContent = file.name;
+      // Truncate long file names
+      const maxLength = 30;
+      const displayName = file.name.length > maxLength 
+        ? file.name.substring(0, maxLength - 3) + '...' 
+        : file.name;
+      fileName.textContent = displayName;
+      fileName.title = file.name; // Show full name on hover
       validateForm();
     } else {
       alert('Please upload a PDF file');
       cvUpload.value = '';
       fileName.textContent = 'No file chosen';
+      cvFile = null;
+      validateForm();
     }
+  } else {
+    cvFile = null;
+    fileName.textContent = 'No file chosen';
+    validateForm();
   }
 }
 
@@ -74,16 +86,23 @@ jobDescription.addEventListener('input', resetResults);
 function resetResults() {
   resultsSection.classList.add('hidden');
   matchScore.textContent = '0%';
+  document.querySelector('.score-circle').style.setProperty('--progress', '0%');
   overallExplanation.textContent = '';
-  updateProgressBar(techSkillsProgress, 0);
-  updateProgressBar(experienceProgress, 0);
-  updateProgressBar(qualificationsProgress, 0);
+  
+  // Reset progress bars
+  [techSkillsProgress, experienceProgress, qualificationsProgress].forEach(progress => {
+    progress.value = 0;
+  });
+  
   techSkillsText.textContent = '0%';
   experienceText.textContent = '0%';
   qualificationsText.textContent = '0%';
+  
+  // Clear lists
   updateList(strengthsList, []);
   updateList(improvementsList, []);
   updateList(recommendationsList, []);
+  
   // Remove any summary lists if present
   const summaryDiv = document.getElementById('summary-div');
   if (summaryDiv) summaryDiv.remove();
@@ -282,25 +301,33 @@ function updateResultsUI(score, cvAnalysis) {
 
 // Helper function to update a progress bar
 function updateProgressBar(progressElement, percentage) {
-  progressElement.style.width = `${Math.min(100, Math.max(0, percentage))}%`;
+  progressElement.value = percentage;
+  
+  // For the score circle
+  if (progressElement.id === 'match-score') {
+    const scoreCircle = document.querySelector('.score-circle');
+    if (scoreCircle) {
+      scoreCircle.style.setProperty('--progress', `${percentage}%`);
+    }
+  }
 }
 
 // Helper function to update a list
 function updateList(listElement, items) {
   listElement.innerHTML = '';
-  if (items.length === 0 || (items.length === 1 && items[0]._empty)) {
+  if (items && items.length > 0) {
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      listElement.appendChild(li);
+    });
+  } else {
     const li = document.createElement('li');
-    li.textContent = 'None identified.';
-    li.style.color = '#888';
+    li.textContent = 'No items to display';
     li.style.fontStyle = 'italic';
+    li.style.color = 'var(--muted-color)';
     listElement.appendChild(li);
-    return;
   }
-  items.forEach(item => {
-    const li = document.createElement('li');
-    li.textContent = item;
-    listElement.appendChild(li);
-  });
 }
 
 // Set loading state

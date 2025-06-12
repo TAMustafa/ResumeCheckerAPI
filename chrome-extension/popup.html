@@ -1,93 +1,127 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resume Checker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-  <h1>Resume Checker</h1>
-  <p>Upload your CV and job description to see how well they match</p>
-
-  <div class="file-upload">
-    <h2>1. Upload Your CV (PDF)</h2>
-    <label for="cv-upload" class="file-upload-label">
-      Choose PDF File
-    </label>
-    <input type="file" id="cv-upload" accept=".pdf" />
-    <span id="file-name">No file chosen</span>
-  </div>
-
-  <div class="job-description">
-    <h2>2. Paste Job Description</h2>
-    <textarea id="job-description" placeholder="Paste the job description here..."></textarea>
-  </div>
-
-  <div class="actions">
-    <button id="analyze-btn" disabled>
-      <span class="btn-text">Analyze Match</span>
-      <div class="spinner hidden" id="spinner"></div>
-    </button>
-    <!-- Clear button will be injected by JS for consistency -->
-  </div>
-
-  <div id="results" class="results hidden">
-    <h2>Analysis Results</h2>
+  <style>
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    body::-webkit-scrollbar {
+      width: 8px;
+    }
     
-    <div class="score-container">
-      <div class="score-circle">
-        <div class="score-text" id="match-score">0%</div>
-      </div>
-      <div class="score-explanation">
-        <h3>Overall Match</h3>
-        <p id="overall-explanation"></p>
-      </div>
-    </div>
+    body::-webkit-scrollbar-track {
+      background: var(--card-border-color);
+      border-radius: 4px;
+    }
+    
+    body::-webkit-scrollbar-thumb {
+      background: var(--muted-color);
+      border-radius: 4px;
+    }
+    
+    body::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+  </style>
+</head>
+<body class="container">
+  <header class="container">
+    <hgroup>
+      <h1>Resume Checker</h1>
+      <p>Upload your CV and job description to see how well they match</p>
+    </hgroup>
+  </header>
 
-    <!-- Summary of matched/missing requirements will be injected here by JS -->
+  <main class="container">
+    <article class="grid">
+      <div>
+        <label for="cv-upload" class="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+          </svg>
+          Upload CV (PDF)
+        </label>
+        <input type="file" id="cv-upload" accept=".pdf" class="sr-only" />
+        <small id="file-name" class="secondary">No file chosen</small>
+      </div>
 
-    <div class="progress-container">
-      <div class="progress-label">
-        <span>Technical Skills</span>
-        <span id="tech-skills-text">0%</span>
+      <div>
+        <label for="job-description">
+          <h2>Paste Job Description</h2>
+        </label>
+        <textarea 
+          id="job-description" 
+          placeholder="Paste the job description here..."
+          rows="6"
+        ></textarea>
       </div>
-      <div class="progress-bar">
-        <div class="progress" id="tech-skills-progress"></div>
-      </div>
-    </div>
 
-    <div class="progress-container">
-      <div class="progress-label">
-        <span>Experience</span>
-        <span id="experience-text">0%</span>
+      <div class="grid">
+        <button id="analyze-btn" class="primary" disabled>
+          <span class="btn-text">Analyze Match</span>
+          <span class="spinner hidden" id="spinner" aria-hidden="true"></span>
+        </button>
+        <!-- Clear button will be injected by JS for consistency -->
       </div>
-      <div class="progress-bar">
-        <div class="progress" id="experience-progress"></div>
-      </div>
-    </div>
+    </article>
 
-    <div class="progress-container">
-      <div class="progress-label">
-        <span>Qualifications</span>
-        <span id="qualifications-text">0%</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress" id="qualifications-progress"></div>
-      </div>
-    </div>
-
-    <div class="recommendations">
-      <h3>Key Strengths</h3>
-      <ul id="strengths-list"></ul>
+    <article id="results" class="hidden">
+      <header>
+        <h2>Analysis Results</h2>
+      </header>
       
-      <h3>Areas for Improvement</h3>
-      <ul id="improvements-list"></ul>
-      
-      <h3>Tailoring Suggestions</h3>
-      <ul id="recommendations-list"></ul>
-    </div>
-  </div>
+      <div class="grid" style="align-items: center;">
+        <div class="score-circle" style="text-align: center; margin: 0 auto;">
+          <div class="score-text" id="match-score" style="font-size: 2.5rem; font-weight: bold;">0%</div>
+        </div>
+        <div>
+          <h3 style="margin-bottom: 0.5rem;">Overall Match</h3>
+          <p id="overall-explanation" style="margin: 0;"></p>
+        </div>
+      </div>
+
+      <!-- Summary of matched/missing requirements will be injected here by JS -->
+      <div id="summary-div"></div>
+
+      <div class="grid">
+        <div>
+          <label for="tech-skills-progress">Technical Skills <span id="tech-skills-text">0%</span></label>
+          <progress id="tech-skills-progress" value="0" max="100"></progress>
+        </div>
+        
+        <div>
+          <label for="experience-progress">Experience <span id="experience-text">0%</span></label>
+          <progress id="experience-progress" value="0" max="100"></progress>
+        </div>
+        
+        <div>
+          <label for="qualifications-progress">Qualifications <span id="qualifications-text">0%</span></label>
+          <progress id="qualifications-progress" value="0" max="100"></progress>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article>
+          <h3>Key Strengths</h3>
+          <ul id="strengths-list"></ul>
+        </article>
+        
+        <article>
+          <h3>Areas for Improvement</h3>
+          <ul id="improvements-list"></ul>
+        </article>
+        
+        <article>
+          <h3>Tailoring Suggestions</h3>
+          <ul id="recommendations-list"></ul>
+        </article>
+      </div>
+    </article>
+  </main>
 
   <script src="js/popup.js"></script>
 </body>

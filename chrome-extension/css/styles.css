@@ -1,177 +1,146 @@
-/* Chrome Extension Default Styles */
+/* Override Pico.css variables for Chrome Extension */
+:root {
+  --font-size: 14px;
+  --spacing: 0.5rem;
+  --border-radius: 0.25rem;
+  --primary: #1a73e8;
+  --primary-hover: #1765cc;
+  --form-element-spacing-vertical: 0.5rem;
+  --form-element-spacing-horizontal: 0.75rem;
+  --popup-width: 380px;
+  --popup-max-height: 600px;
+  --popup-padding: 1rem;
+}
+
+/* Chrome Extension Specific Styles */
+html,
 body {
-  width: 400px;
-  min-height: 100px;
+  width: var(--popup-width);
+  min-width: var(--popup-width);
+  max-width: var(--popup-width);
   margin: 0;
-  padding: 16px;
-  font-family: 'Segoe UI', Tahoma, sans-serif;
-  font-size: 13px;
-  color: #222;
-  background-color: #f5f5f5;
+  padding: 0;
+  font-size: var(--font-size);
+  background-color: var(--card-background-color);
+  overflow-x: hidden;
 }
 
-h1 {
-  font-size: 1.5em;
-  color: #1a73e8;
-  margin: 0 0 16px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #dadce0;
+body {
+  padding: var(--popup-padding);
+  max-height: var(--popup-max-height);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
-h2 {
-  font-size: 1.2em;
-  margin: 16px 0 8px 0;
-  color: #1a73e8;
+/* Header */
+header {
+  padding: 0 0 1rem 0;
+  margin: 0 0 1rem 0;
+  border-bottom: 1px solid var(--card-border-color);
+  position: sticky;
+  top: calc(-1 * var(--popup-padding));
+  background-color: var(--card-background-color);
+  z-index: 10;
+  padding-top: 0.5rem;
+  margin-top: -0.5rem;
 }
 
-p {
-  margin: 8px 0;
-  line-height: 1.5;
+header h1 {
+  margin-bottom: 0.5rem;
 }
 
-/* Form Elements */
-input[type="file"] {
-  display: none;
+header p {
+  margin: 0;
+  color: var(--muted-color);
+  font-size: 0.9em;
 }
 
-button, .button {
-  background-color: #1a73e8;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  margin: 4px 0;
-  transition: background-color 0.2s;
+/* File Upload */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
-button:disabled, .button:disabled {
-  background-color: #dadce0;
-  cursor: not-allowed;
-}
-
-button:not(:disabled):hover, .button:not(:disabled):hover {
-  background-color: #1765cc;
-}
-
-.file-upload {
-  margin: 12px 0;
-}
-
-.file-upload-label {
-  display: inline-block;
-  background-color: #f1f3f4;
-  color: #3c4043;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 1px solid #dadce0;
-  transition: background-color 0.2s;
-}
-
-.file-upload-label:hover {
-  background-color: #e8eaed;
-}
-
-#file-name {
-  margin-left: 8px;
-  color: #5f6368;
-  font-style: italic;
-}
-
-textarea {
-  width: 100%;
-  min-height: 100px;
-  padding: 8px;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 13px;
-  resize: vertical;
-  margin: 8px 0;
-}
-
-/* Results Section */
-.results {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #dadce0;
-}
-
-.score-container {
+/* Score Circle */
+.score-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--primary) 0%,
+    var(--primary) var(--progress, 0%),
+    var(--card-border-color) var(--progress, 0%),
+    var(--card-border-color) 100%
+  );
   display: flex;
   align-items: center;
-  margin: 16px 0;
-  gap: 16px;
-}
-
-.score-circle {
+  justify-content: center;
+  margin: 0 auto 1rem;
   position: relative;
-  width: 100px;
-  height: 100px;
-  min-width: 100px;
+  flex-shrink: 0;
 }
 
 .score-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #1a73e8;
-}
-
-.score-explanation {
-  flex: 1;
-}
-
-.progress-container {
-  margin: 8px 0;
-}
-
-.progress-label {
+  background: var(--card-background-color);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary);
 }
 
-.progress-bar {
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 4px;
+/* Progress Bars */
+progress {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 2rem;
   overflow: hidden;
+  margin-bottom: 1rem;
 }
 
-.progress {
-  height: 100%;
-  background-color: #1a73e8;
-  width: 0%;
+progress::-webkit-progress-bar {
+  background-color: var(--card-border-color);
+  border-radius: 2rem;
+}
+
+progress::-webkit-progress-value {
+  background-color: var(--primary);
+  border-radius: 2rem;
   transition: width 0.3s ease;
 }
 
+/* Lists */
 ul {
-  margin: 8px 0;
-  padding-left: 24px;
+  margin: 0;
+  padding-left: 1.25rem;
 }
 
-li {
-  margin-bottom: 4px;
+ul li {
+  margin-bottom: 0.25rem;
   line-height: 1.4;
 }
 
 /* Loading Spinner */
 .spinner {
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   border-top-color: white;
   animation: spin 1s ease-in-out infinite;
-  margin-left: 8px;
+  margin-left: 0.5rem;
   vertical-align: middle;
 }
 
@@ -184,20 +153,75 @@ li {
   display: none !important;
 }
 
-.text-center {
-  text-align: center;
+/* Responsive Grid Adjustments */
+.grid {
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.mt-2 {
-  margin-top: 8px;
+/* Form Elements */
+textarea {
+  resize: vertical;
+  min-height: 100px;
+  max-height: 200px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.mb-2 {
-  margin-bottom: 8px;
+/* Buttons */
+.button,
+button {
+  width: 100%;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.actions button.ml-2 {
-  margin-left: 8px;
+/* Results Section */
+#results {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border-color);
+}
+
+/* Lists */
+ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+ul li {
+  margin-bottom: 0.25rem;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
+/* Loading Spinner */
+.spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Fix for Pico button with SVG icon */
+.button svg {
+  vertical-align: middle;
+  margin-right: 0.25rem;
 }
 
 #summary-div {
