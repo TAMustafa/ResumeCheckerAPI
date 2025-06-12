@@ -1,0 +1,12 @@
+[project]
+name = "resumechecker"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.12",
+    "logfire>=3.16.1",
+    "pydantic-ai>=0.2.12",
+    "streamlit>=1.45.1",
+    "watchdog>=6.0.0",
+]

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Checker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <h1>Resume Checker</h1>
+  <p>Upload your CV and job description to see how well they match</p>
+
+  <div class="file-upload">
+    <h2>1. Upload Your CV (PDF)</h2>
+    <label for="cv-upload" class="file-upload-label">
+      Choose PDF File
+    </label>
+    <input type="file" id="cv-upload" accept=".pdf" />
+    <span id="file-name">No file chosen</span>
+  </div>
+
+  <div class="job-description">
+    <h2>2. Paste Job Description</h2>
+    <textarea id="job-description" placeholder="Paste the job description here..."></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="analyze-btn" disabled>
+      <span class="btn-text">Analyze Match</span>
+      <div class="spinner hidden" id="spinner"></div>
+    </button>
+  </div>
+
+  <div id="results" class="results hidden">
+    <h2>Analysis Results</h2>
+    
+    <div class="score-container">
+      <div class="score-circle">
+        <div class="score-text" id="match-score">0%</div>
+      </div>
+      <div class="score-explanation">
+        <h3>Overall Match</h3>
+        <p id="overall-explanation"></p>
+      </div>
+    </div>
+
+    <div class="progress-container">
+      <div class="progress-label">
+        <span>Technical Skills</span>
+        <span id="tech-skills-text">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress" id="tech-skills-progress"></div>
+      </div>
+    </div>
+
+    <div class="progress-container">
+      <div class="progress-label">
+        <span>Experience</span>
+        <span id="experience-text">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress" id="experience-progress"></div>
+      </div>
+    </div>
+
+    <div class="progress-container">
+      <div class="progress-label">
+        <span>Qualifications</span>
+        <span id="qualifications-text">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress" id="qualifications-progress"></div>
+      </div>
+    </div>
+
+    <div class="recommendations">
+      <h3>Key Strengths</h3>
+      <ul id="strengths-list"></ul>
+      
+      <h3>Areas for Improvement</h3>
+      <ul id="improvements-list"></ul>
+      
+      <h3>Tailoring Suggestions</h3>
+      <ul id="recommendations-list"></ul>
+    </div>
+  </div>
+
+  <script src="js/popup.js"></script>
+</body>
+</html>
