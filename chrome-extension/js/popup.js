@@ -50,37 +50,34 @@ if (actionsDiv) {
   actionsDiv.appendChild(clearBtn);
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  resetResults();
+  validateForm();
+});
+
 // Update the file name display when a file is selected
 function handleFileUpload(event) {
   const file = event.target.files[0];
-  if (file) {
-    if (file.type === 'application/pdf') {
-      cvFile = file;
-      // Truncate long file names
-      const maxLength = 30;
-      const displayName = file.name.length > maxLength 
-        ? file.name.substring(0, maxLength - 3) + '...' 
-        : file.name;
-      fileName.textContent = displayName;
-      fileName.title = file.name; // Show full name on hover
-      validateForm();
-    } else {
-      alert('Please upload a PDF file');
-      cvUpload.value = '';
-      fileName.textContent = 'No file chosen';
-      cvFile = null;
-      validateForm();
-    }
+  if (file && file.type === 'application/pdf') {
+    cvFile = file;
+    // Truncate long file names
+    const maxLength = 30;
+    const displayName = file.name.length > maxLength 
+      ? file.name.substring(0, maxLength - 3) + '...' 
+      : file.name;
+    fileName.textContent = displayName;
+    fileName.title = file.name; // Show full name on hover
   } else {
     cvFile = null;
     fileName.textContent = 'No file chosen';
-    validateForm();
   }
+  validateForm();
+  resetResults();
 }
 
 // Enable/disable analyze button based on form validity
 function validateForm() {
-  analyzeBtn.disabled = !(cvFile && jobDescription.value.trim().length > 0);
+  analyzeBtn.disabled = !(cvFile && jobDescription.value.trim());
 }
 
 // Reset results when user changes input
@@ -94,9 +91,7 @@ function resetResults() {
   overallExplanation.textContent = '';
   
   // Reset progress bars
-  [techSkillsProgress, experienceProgress, qualificationsProgress].forEach(progress => {
-    progress.value = 0;
-  });
+  [techSkillsProgress, experienceProgress, qualificationsProgress].forEach(p => p.value = 0);
   
   techSkillsText.textContent = '0%';
   experienceText.textContent = '0%';
@@ -249,7 +244,7 @@ function updateResultsUI(score, cvAnalysis) {
   // Ensure the score is a number and not hardcoded
   let overall = typeof score.overall_match_score === 'number' ? score.overall_match_score : 0;
   matchScore.textContent = `${overall}%`;
-  overallExplanation.textContent = score.overall_explanation || 'No explanation available.';
+  overallExplanation.textContent = score.overall_explanation ?? 'No explanation available.';
   
   // Update progress bars
   updateProgressBar(techSkillsProgress, score.technical_skills_score);
@@ -257,14 +252,14 @@ function updateResultsUI(score, cvAnalysis) {
   updateProgressBar(qualificationsProgress, score.qualifications_score);
   
   // Update score texts
-  techSkillsText.textContent = `${score.technical_skills_score}%`;
-  experienceText.textContent = `${score.experience_score}%`;
-  qualificationsText.textContent = `${score.qualifications_score}%`;
+  techSkillsText.textContent = `${score.technical_skills_score ?? 0}%`;
+  experienceText.textContent = `${score.experience_score ?? 0}%`;
+  qualificationsText.textContent = `${score.qualifications_score ?? 0}%`;
   
   // Update lists
-  updateList(strengthsList, score.strengths || ['No strengths identified.']);
-  updateList(improvementsList, score.gaps || ['No specific areas for improvement identified.']);
-  updateList(recommendationsList, score.improvement_suggestions || ['No specific recommendations available.']);
+  updateList(strengthsList, score.strengths ?? ['No strengths identified.']);
+  updateList(improvementsList, score.gaps ?? ['No specific areas for improvement identified.']);
+  updateList(recommendationsList, score.improvement_suggestions ?? ['No specific recommendations available.']);
   
   // Show summary of matched/missing requirements if available
   let summaryDiv = document.getElementById('summary-div');
@@ -280,38 +275,38 @@ function updateResultsUI(score, cvAnalysis) {
     return `<span style="display:inline-block;background:${color};color:#fff;border-radius:12px;padding:2px 8px;margin:2px 2px 2px 0;font-size:12px;">${label}</span>`;
   }
 
-  if (score.matched_skills && score.matched_skills.length > 0) {
+  if (score.matched_skills?.length) {
     summaryDiv.innerHTML += `<strong>Matched Skills:</strong> ${score.matched_skills.map(s => badge(s, "#1a73e8")).join('')}<br>`;
   }
-  if (score.matched_qualifications && score.matched_qualifications.length > 0) {
+  if (score.matched_qualifications?.length) {
     summaryDiv.innerHTML += `<strong>Matched Qualifications:</strong> ${score.matched_qualifications.map(q => badge(q, "#43a047")).join('')}<br>`;
   }
-  if (score.matched_languages && score.matched_languages.length > 0) {
+  if (score.matched_languages?.length) {
     summaryDiv.innerHTML += `<strong>Matched Languages:</strong> ${score.matched_languages.map(l => badge(l, "#fbbc04")).join('')}<br>`;
   }
-  if (score.missing_requirements && score.missing_requirements.length > 0) {
+  if (score.missing_requirements?.length) {
     summaryDiv.innerHTML += `<strong>Missing Requirements:</strong> ${score.missing_requirements.map(m => badge(m, "#d93025")).join('')}<br>`;
   }
 
   // --- Key Strengths & Areas for Improvement ---
   // Try to get from score, else fallback to cvAnalysis
-  let strengths = score.strengths || (cvAnalysis?.candidate_suitability?.strengths) || [];
-  let gaps = score.gaps || (cvAnalysis?.candidate_suitability?.gaps) || [];
+  let strengths = score.strengths ?? cvAnalysis?.candidate_suitability?.strengths ?? [];
+  let gaps = score.gaps ?? cvAnalysis?.candidate_suitability?.gaps ?? [];
 
-  updateList(strengthsList, strengths.length > 0 ? strengths : [{_empty: true}]);
-  updateList(improvementsList, gaps.length > 0 ? gaps : [{_empty: true}]);
-  updateList(recommendationsList, score.improvement_suggestions || ['No specific recommendations available.']);
+  updateList(strengthsList, strengths.length ? strengths : []);
+  updateList(improvementsList, gaps.length ? gaps : []);
+  updateList(recommendationsList, score.improvement_suggestions ?? []);
 }
 
 // Helper function to update a progress bar
 function updateProgressBar(progressElement, percentage) {
-  progressElement.value = percentage;
+  progressElement.value = percentage ?? 0;
   
   // For the score circle
   if (progressElement.id === 'match-score') {
     const scoreCircle = document.querySelector('.score-circle');
     if (scoreCircle) {
-      scoreCircle.style.setProperty('--progress', `${percentage}%`);
+      scoreCircle.style.setProperty('--progress', `${percentage ?? 0}%`);
     }
   }
 }
@@ -325,16 +320,21 @@ function updateList(listElement, items) {
       li.textContent = item;
       listElement.appendChild(li);
     });
-  } else {
-    const li = document.createElement('li');
-    li.textContent = 'No items to display';
-    li.style.fontStyle = 'italic';
-    li.style.color = 'var(--muted-color)';
-    listElement.appendChild(li);
   }
 }
 
 // Set loading state
+function setLoading(isLoading) {
+  if (isLoading) {
+    analyzeBtn.disabled = true;
+    document.querySelector('.btn-text').textContent = 'Analyzing...';
+    spinner.classList.remove('hidden');
+  } else {
+    analyzeBtn.disabled = !(cvFile && jobDescription.value.trim());
+    document.querySelector('.btn-text').textContent = 'Analyze Match';
+    spinner.classList.add('hidden');
+  }
+}
 function setLoading(isLoading) {
   if (isLoading) {
     analyzeBtn.disabled = true;

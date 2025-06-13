@@ -1,16 +1,25 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Import models and agent logic
 from models import JobRequirements, CVAnalysis, MatchingScore
 from agents import analyze_job_vacancy, analyze_cv, score_cv_match
 
 load_dotenv()
 
 app = FastAPI()
+
+# Allow CORS for local development (Chrome extension)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For production, restrict this!
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
