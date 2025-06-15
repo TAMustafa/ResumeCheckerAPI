@@ -417,17 +417,6 @@ function setLoading(isLoading) {
     document.querySelector('.btn-text').textContent = 'Analyzing...';
     spinner.classList.remove('hidden');
   } else {
-    analyzeBtn.disabled = !(cvFile && jobDescription.value.trim());
-    document.querySelector('.btn-text').textContent = 'Analyze Match';
-    spinner.classList.add('hidden');
-  }
-}
-function setLoading(isLoading) {
-  if (isLoading) {
-    analyzeBtn.disabled = true;
-    document.querySelector('.btn-text').textContent = 'Analyzing...';
-    spinner.classList.remove('hidden');
-  } else {
     analyzeBtn.disabled = !(cvFile && jobDescription.value.trim().length > 0);
     document.querySelector('.btn-text').textContent = 'Analyze Match';
     spinner.classList.add('hidden');
