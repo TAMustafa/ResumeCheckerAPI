@@ -75,6 +75,22 @@ The API will be available at `http://localhost:8000`
 
 The backend provides the following RESTful endpoints:
 
+- `GET /api/uploaded-cvs`: List all previously uploaded CVs
+
+  **Returns:**  
+  List of CV files with metadata:
+
+  ```json
+  [
+    {
+      "filename": "resume.pdf",
+      "originalname": "resume.pdf",
+      "size": 12345,
+      "uploaded_at": "2025-06-15T10:30:00"
+    }
+  ]
+  ```
+
 - `POST /analyze-job-vacancy`: Analyze job description
 
   ```json
@@ -105,7 +121,16 @@ The backend provides the following RESTful endpoints:
   }
   ```
 
-- `POST /analyze-cv`: Analyze uploaded CV (PDF)
+- `POST /analyze-cv`: Upload and analyze a CV (PDF)
+
+  - Saves the uploaded CV to the `uploaded_cvs` directory
+  - Only accepts PDF files
+  - Returns the CV analysis
+  
+  **File Management:**  
+  - Files are stored in the `uploaded_cvs` directory
+  - Filenames are preserved from the uploaded file
+  - Only PDF files are accepted
 
   - Content-Type: multipart/form-data
   - File field: file (PDF)
@@ -185,6 +210,8 @@ ResumeChecker/
 ├── models.py               # Pydantic models
 ├── prompts.py              # AI prompt templates
 ├── pyproject.toml          # Project dependencies
+├── uploaded_cvs/           # Directory for storing uploaded CVs
+│   └── *.pdf              # Uploaded CV files
 └── README.md               # This file
 ```
 
