@@ -1,5 +1,7 @@
 // DOM Elements
 const cvUpload = document.getElementById('cv-upload');
+const uploadBtn = document.getElementById('upload-btn');
+const savedCvsSelect = document.getElementById('saved-cvs');
 const fileName = document.getElementById('file-name');
 const jobDescription = document.getElementById('job-description');
 const analyzeBtn = document.getElementById('analyze-btn');
@@ -7,6 +9,9 @@ const spinner = document.getElementById('spinner');
 const resultsSection = document.getElementById('results');
 const matchScore = document.getElementById('match-score');
 const overallExplanation = document.getElementById('overall-explanation');
+
+// Backend API URL - Update this to your backend URL
+const API_BASE_URL = 'http://localhost:8000';
 
 // Progress elements
 const techSkillsProgress = document.getElementById('tech-skills-progress');
@@ -29,11 +34,10 @@ let cvAnalysis = null;
 // Store last cvAnalysis for strengths/gaps fallback
 let lastCvAnalysis = null;
 
-// Backend API URL - Update this to your backend URL
-const API_BASE_URL = 'http://localhost:8000';
-
 // Event Listeners
+uploadBtn.addEventListener('click', () => cvUpload.click());
 cvUpload.addEventListener('change', handleFileUpload);
+savedCvsSelect.addEventListener('change', handleCvSelect);
 jobDescription.addEventListener('input', validateForm);
 analyzeBtn.addEventListener('click', analyzeDocuments);
 
@@ -50,14 +54,66 @@ if (actionsDiv) {
   actionsDiv.appendChild(clearBtn);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   resetResults();
   validateForm();
+  await fetchUploadedCVs();
 });
+
+// Fetch list of previously uploaded CVs from the backend
+async function fetchUploadedCVs() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/uploaded-cvs`);
+    if (!response.ok) throw new Error('Failed to fetch CVs');
+    
+    const cvs = await response.json();
+    updateCvDropdown(cvs);
+  } catch (error) {
+    console.error('Error fetching CVs:', error);
+    // Silently fail - the dropdown will just be empty
+  }
+}
+
+// Update the CV dropdown with the list of uploaded CVs
+function updateCvDropdown(cvs) {
+  // Clear existing options except the first one
+  while (savedCvsSelect.options.length > 1) {
+    savedCvsSelect.remove(1);
+  }
+  
+  // Add new options
+  cvs.forEach(cv => {
+    const option = document.createElement('option');
+    option.value = cv.filename;
+    option.textContent = cv.originalname || cv.filename;
+    savedCvsSelect.appendChild(option);
+  });
+}
+
+// Handle CV selection from dropdown
+function handleCvSelect(event) {
+  const selectedCv = event.target.value;
+  if (!selectedCv) return;
+  
+  // Reset file input
+  cvUpload.value = '';
+  fileName.textContent = 'Using selected CV: ' + selectedCv;
+  
+  // Set the cvFile to indicate a file is selected
+  cvFile = { name: selectedCv, isFromDropdown: true };
+  validateForm();
+  resetResults();
+}
 
 // Update the file name display when a file is selected
 function handleFileUpload(event) {
   const file = event.target.files[0];
+  
+  // Reset dropdown selection when a new file is uploaded
+  if (savedCvsSelect) {
+    savedCvsSelect.selectedIndex = 0;
+  }
+  
   if (file && file.type === 'application/pdf') {
     cvFile = file;
     // Truncate long file names
@@ -184,10 +240,41 @@ async function analyzeJobDescription(description) {
 // API: Analyze CV
 async function analyzeCV(file) {
   const formData = new FormData();
-  formData.append('file', file, file.name);
   
   try {
-    console.log('Uploading CV file:', file.name);
+    if (file.isFromDropdown) {
+      // If the file is from the dropdown, we need to fetch it first
+      console.log('Analyzing CV from dropdown:', file.name);
+      try {
+        // Ensure the filename is properly encoded for the URL
+        const encodedFilename = encodeURIComponent(file.name);
+        console.log('Fetching CV from:', `${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
+        
+        const response = await fetch(`${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server responded with:', response.status, errorText);
+          throw new Error(`Failed to fetch CV: ${response.status} - ${errorText}`);
+        }
+        
+        // Convert the response to a blob and create a File object
+        const blob = await response.blob();
+        if (blob.size === 0) {
+          throw new Error('Received empty file from server');
+        }
+        
+        const fetchedFile = new File([blob], file.name, { type: 'application/pdf' });
+        formData.append('file', fetchedFile, file.name);
+      } catch (error) {
+        console.error('Error fetching CV:', error);
+        throw new Error(`Error fetching CV: ${error.message}`);
+      }
+    } else {
+      // Regular file upload
+      console.log('Uploading CV file:', file.name);
+      formData.append('file', file, file.name);
+    }
     
     const response = await fetch(`${API_BASE_URL}/analyze-cv`, {
       method: 'POST',
