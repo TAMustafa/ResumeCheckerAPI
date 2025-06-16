@@ -376,3 +376,33 @@ ul li {
   font-size: 12px;
   display: inline-block;
 }
+
+/* Tab Bar Styles */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--card-border-color);
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0.75rem 0;
+  font-size: 1em;
+  cursor: pointer;
+  color: var(--muted-color);
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-bottom 0.2s;
+}
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary);
+  font-weight: bold;
+}
+.tab-section {
+  display: none;
+}
+.tab-section.active {
+  display: block;
+}
