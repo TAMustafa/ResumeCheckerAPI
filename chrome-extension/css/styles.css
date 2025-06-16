@@ -40,6 +40,24 @@ button {
 .grid {
   gap: var(--spacing, 0.5rem);
   margin-bottom: var(--spacing, 0.5rem);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Span 2 columns for the improvements section */
+.span-2 {
+  grid-column: span 2;
+}
+
+/* Adjust grid for smaller screens */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .span-2 {
+    grid-column: span 1;
+  }
 }
 
 /* 5. Use Pico's utility classes for margin/padding where possible */

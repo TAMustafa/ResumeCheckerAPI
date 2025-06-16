@@ -21,11 +21,6 @@ const techSkillsText = document.getElementById('tech-skills-text');
 const experienceText = document.getElementById('experience-text');
 const qualificationsText = document.getElementById('qualifications-text');
 
-// List elements
-const strengthsList = document.getElementById('strengths-list');
-const improvementsList = document.getElementById('improvements-list');
-const recommendationsList = document.getElementById('recommendations-list');
-
 // State
 let cvFile = null;
 let jobRequirements = null;
@@ -153,13 +148,11 @@ function resetResults() {
   experienceText.textContent = '0%';
   qualificationsText.textContent = '0%';
   
-  // Clear lists
-  updateList(strengthsList, []);
-  updateList(improvementsList, []);
-  updateList(recommendationsList, []);
-  
-  // Remove any summary lists if present
+  // Clear summary section if present
   const summaryDiv = document.getElementById('summary-div');
+  if (summaryDiv) {
+    summaryDiv.innerHTML = '';
+  }
   if (summaryDiv) summaryDiv.remove();
 }
 
@@ -342,19 +335,14 @@ function updateResultsUI(score, cvAnalysis) {
   techSkillsText.textContent = `${score.technical_skills_score ?? 0}%`;
   experienceText.textContent = `${score.experience_score ?? 0}%`;
   qualificationsText.textContent = `${score.qualifications_score ?? 0}%`;
-  
-  // Update lists
-  updateList(strengthsList, score.strengths ?? ['No strengths identified.']);
-  updateList(improvementsList, score.gaps ?? ['No specific areas for improvement identified.']);
-  updateList(recommendationsList, score.improvement_suggestions ?? ['No specific recommendations available.']);
-  
+
   // Show summary of matched/missing requirements if available
   let summaryDiv = document.getElementById('summary-div');
   if (!summaryDiv) {
     summaryDiv = document.createElement('div');
     summaryDiv.id = 'summary-div';
     summaryDiv.className = 'mt-2';
-    resultsSection.insertBefore(summaryDiv, resultsSection.querySelector('.recommendations'));
+    resultsSection.appendChild(summaryDiv);
   }
   summaryDiv.innerHTML = '';
 
@@ -362,27 +350,37 @@ function updateResultsUI(score, cvAnalysis) {
     return `<span style="display:inline-block;background:${color};color:#fff;border-radius:12px;padding:2px 8px;margin:2px 2px 2px 0;font-size:12px;">${label}</span>`;
   }
 
+  // Add matched skills
   if (score.matched_skills?.length) {
-    summaryDiv.innerHTML += `<strong>Matched Skills:</strong> ${score.matched_skills.map(s => badge(s, "#1a73e8")).join('')}<br>`;
+    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Skills:</strong><br>${score.matched_skills.map(s => badge(s, "#1a73e8")).join('')}</div>`;
   }
+  
+  // Add matched qualifications
   if (score.matched_qualifications?.length) {
-    summaryDiv.innerHTML += `<strong>Matched Qualifications:</strong> ${score.matched_qualifications.map(q => badge(q, "#43a047")).join('')}<br>`;
+    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Qualifications:</strong><br>${score.matched_qualifications.map(q => badge(q, "#43a047")).join('')}</div>`;
   }
-  if (score.matched_languages?.length) {
-    summaryDiv.innerHTML += `<strong>Matched Languages:</strong> ${score.matched_languages.map(l => badge(l, "#fbbc04")).join('')}<br>`;
-  }
+  
+  // Add missing requirements
   if (score.missing_requirements?.length) {
-    summaryDiv.innerHTML += `<strong>Missing Requirements:</strong> ${score.missing_requirements.map(m => badge(m, "#d93025")).join('')}<br>`;
+    summaryDiv.innerHTML += `<div class="mt-2"><strong>Missing Requirements:</strong><br>${score.missing_requirements.map(m => badge(m, "#d93025")).join('')}</div>`;
   }
-
-  // --- Key Strengths & Areas for Improvement ---
-  // Try to get from score, else fallback to cvAnalysis
-  let strengths = score.strengths ?? cvAnalysis?.candidate_suitability?.strengths ?? [];
-  let gaps = score.gaps ?? cvAnalysis?.candidate_suitability?.gaps ?? [];
-
-  updateList(strengthsList, strengths.length ? strengths : []);
-  updateList(improvementsList, gaps.length ? gaps : []);
-  updateList(recommendationsList, score.improvement_suggestions ?? []);
+  
+  // Add matched languages if any
+  if (score.matched_languages?.length) {
+    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Languages:</strong><br>${score.matched_languages.map(l => badge(l, "#fbbc04")).join('')}</div>`;
+  }
+  
+  // Add any improvement suggestions
+  const gaps = score.gaps ?? [];
+  const suggestions = score.improvement_suggestions ?? [];
+  const allSuggestions = [...gaps, ...suggestions];
+  
+  if (allSuggestions.length > 0) {
+    const suggestionsHtml = allSuggestions.map(suggestion => 
+      `<div class="suggestion">• ${suggestion}</div>`
+    ).join('');
+    summaryDiv.innerHTML += `<div class="mt-2"><strong>Suggestions for Improvement:</strong>${suggestionsHtml}</div>`;
+  }
 }
 
 // Helper function to update a progress bar

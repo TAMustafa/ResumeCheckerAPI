@@ -23,21 +23,21 @@ model_settings = {
 
 # Define agents with their respective models and prompts
 job_requirements_agent = Agent(
-    'openai:gpt-4o-mini',
+    'openai:gpt-4o',
     output_type=JobRequirements,
     system_prompt=job_requirements_prompt,
     model_settings=model_settings
 )
 
 cv_review_agent = Agent(
-    'openai:gpt-4o-mini',
+    'openai:gpt-4o',
     output_type=CVAnalysis,
     system_prompt=cv_review_prompt,
     model_settings=model_settings
 )
 
 scoring_agent = Agent(
-    'openai:gpt-4o-mini',
+    'openai:gpt-4o',
     output_type=MatchingScore,
     system_prompt=scoring_prompt,
     model_settings=model_settings
@@ -50,7 +50,7 @@ async def analyze_job_vacancy(vacancy_text: str) -> JobRequirements:
     """
     try:
         result = await job_requirements_agent.run(
-            f"Extract the job requirements and any other relevant information from the vacancy text: {vacancy_text}"
+            f"Extract the job requirements and any other key information from the vacancy text: {vacancy_text}"
         )
         return result.output
     except ValidationError as e:
@@ -68,7 +68,7 @@ async def analyze_cv(pdf_path: Path) -> CVAnalysis:
     """
     try:
         result = await cv_review_agent.run([
-            f"Analyze the CV and provide a detailed breakdown of strengths, weaknesses, and improvement recommendations.",
+            f"Analyze the CV and provide a bulletpoint summary of strengths, weaknesses, and improvement recommendations.",
             BinaryContent(data=pdf_path.read_bytes(), media_type='application/pdf'),
         ])
         return result.output
@@ -87,7 +87,7 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
     """
     try:
         result = await scoring_agent.run(
-            f"Provide a score between 0 and 100 based on how well the CV matches the job requirements: {cv_analysis} {job_requirements}"
+            f"Provide a score between 0 and 100 based on how well the CV matches the job requirements based on common skills and requirements: {cv_analysis} {job_requirements}"
         )
         return result.output
     except ValidationError as e:
