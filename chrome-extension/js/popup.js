@@ -488,58 +488,102 @@ function renderJobAnalysisSummary(result) {
   if (!result || typeof result !== 'object') return 'No details extracted.';
   let html = '';
 
-  // Helper for pills
-  const pill = (text, color) =>
-    `<span style="background:${color};color:#fff;border-radius:12px;padding:2px 8px;margin:2px 2px 2px 0;font-size:12px;display:inline-block;">${text}</span>`;
+  // Helper function to render a list of items with a title
+  const renderSection = (title, items, isBulletList = false) => {
+    if (!items || (Array.isArray(items) && items.length === 0)) return '';
+    
+    let content = '';
+    if (Array.isArray(items)) {
+      if (isBulletList) {
+        content = `<ul style="margin: 0.5rem 0 1rem 1.5rem; padding: 0;">
+          ${items.map(item => `<li style="margin-bottom: 0.5rem;">${item}</li>`).join('')}
+        </ul>`;
+      } else {
+        content = `<div style="margin: 0.5rem 0 1rem 0; line-height: 1.6;">
+          ${items.join('. ')}
+        </div>`;
+      }
+    } else if (typeof items === 'object' && items !== null) {
+      content = '<ul style="margin: 0.5rem 0 1rem 1.5rem; padding: 0;">';
+      for (const [key, value] of Object.entries(items)) {
+        if (value !== null && value !== undefined && value !== '') {
+          const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          content += `<li style="margin-bottom: 0.5rem;"><strong>${label}:</strong> ${value}</li>`;
+        }
+      }
+      content += '</ul>';
+    } else if (items) {
+      content = `<div style="margin: 0.5rem 0 1rem 0; line-height: 1.6;">${items}</div>`;
+    }
+    
+    return `
+      <div class="section" style="margin-bottom: 1.5rem;">
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: var(--primary);">
+          ${title}
+        </h3>
+        ${content}
+      </div>
+    `;
+  };
+
+  // Job Title and Company
+  if (result.job_title || result.company) {
+    const title = [result.job_title, result.company].filter(Boolean).join(' at ');
+    html += `<h2 style="margin: 0 0 1rem 0; font-size: 1.4rem;">${title}</h2>`;
+  }
+
+  // Job Description
+  if (result.job_description) {
+    html += renderSection('Job Description', result.job_description);
+  }
+
+  // Requirements
+  const requirements = result.requirements_list || result.requirements;
+  if (Array.isArray(requirements) && requirements.length) {
+    html += renderSection('Requirements', requirements, true);
+  }
 
   // Skills
   if (Array.isArray(result.skills) && result.skills.length) {
-    html += `<div><strong>Skills:</strong> ${result.skills.map(s => pill(s, "#1a73e8")).join(' ')}</div>`;
+    html += renderSection('Skills', result.skills, true);
   }
 
   // Qualifications
   if (Array.isArray(result.qualifications) && result.qualifications.length) {
-    html += `<div><strong>Qualifications:</strong> ${result.qualifications.map(q => pill(q, "#43a047")).join(' ')}</div>`;
+    html += renderSection('Qualifications', result.qualifications, true);
   }
 
-  // Requirements
-  if (Array.isArray(result.requirements) && result.requirements.length) {
-    html += `<div><strong>Requirements:</strong> ${result.requirements.map(r => pill(r, "#6d4cff")).join(' ')}</div>`;
-  }
-  if (Array.isArray(result.requirements_list) && result.requirements_list.length) {
-    html += `<div><strong>Requirements:</strong> ${result.requirements_list.map(r => pill(r, "#6d4cff")).join(' ')}</div>`;
-  }
-
-  // Languages
-  if (Array.isArray(result.languages) && result.languages.length) {
-    html += `<div><strong>Languages:</strong> ${result.languages.map(l => pill(l, "#fbbc04")).join(' ')}</div>`;
-  }
-
-  // Experience (render as readable text if object)
+  // Experience
   if (result.experience) {
-    let exp = result.experience;
-    if (typeof exp === 'object' && exp !== null) {
-      // Render each key-value pair as a pill
-      const expPills = Object.entries(exp)
-        .filter(([k, v]) => v !== null && v !== undefined && v !== '')
-        .map(([k, v]) => {
-          let label = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          return pill(`${label}: ${v}`, "#607d8b");
-        })
-        .join(' ');
-      html += `<div><strong>Experience:</strong> ${expPills || pill('Not specified', "#bdbdbd")}</div>`;
-    } else {
-      html += `<div><strong>Experience:</strong> ${pill(exp, "#607d8b")}</div>`;
-    }
+    html += renderSection('Experience', result.experience);
   }
 
   // Responsibilities
   if (Array.isArray(result.responsibilities) && result.responsibilities.length) {
-    html += `<div><strong>Responsibilities:</strong> ${result.responsibilities.map(r => pill(r, "#009688")).join(' ')}</div>`;
+    html += renderSection('Responsibilities', result.responsibilities, true);
   }
+
+  // Languages
+  if (Array.isArray(result.languages) && result.languages.length) {
+    html += renderSection('Languages', result.languages, false);
+  }
+
   // Certifications
   if (Array.isArray(result.certifications) && result.certifications.length) {
-    html += `<div><strong>Certifications:</strong> ${result.certifications.map(c => pill(c, "#e67c73")).join(' ')}</div>`;
+    html += renderSection('Certifications', result.certifications, true);
+  }
+
+  // Additional sections
+  const additionalSections = [
+    'location', 'employment_type', 'salary', 'benefits', 
+    'company_overview', 'contact_information', 'application_instructions'
+  ];
+  
+  for (const section of additionalSections) {
+    if (result[section]) {
+      const title = section.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      html += renderSection(title, result[section]);
+    }
   }
 
   return html || 'No details extracted.';
@@ -547,83 +591,50 @@ function renderJobAnalysisSummary(result) {
 
 // Render CV analysis summary
 function renderCvAnalysisSummary(result) {
-  if (!result || typeof result !== 'object') return 'No details extracted.';
-  let html = '';
-
-  // Helper for pills
-  const pill = (text, color) =>
-    `<span style="background:${color};color:#fff;border-radius:12px;padding:2px 8px;margin:2px 2px 2px 0;font-size:12px;display:inline-block;">${text}</span>`;
-
-  // Skills
-  if (Array.isArray(result.skills) && result.skills.length) {
-    html += `<div><strong>Skills:</strong> ${result.skills.map(s => pill(s, "#1a73e8")).join(' ')}</div>`;
-  }
-
-  // Qualifications
-  if (Array.isArray(result.qualifications) && result.qualifications.length) {
-    html += `<div><strong>Qualifications:</strong> ${result.qualifications.map(q => pill(q, "#43a047")).join(' ')}</div>`;
-  }
-
-  // Languages
-  if (Array.isArray(result.languages) && result.languages.length) {
-    html += `<div><strong>Languages:</strong> ${result.languages.map(l => pill(l, "#fbbc04")).join(' ')}</div>`;
-  }
-
-  // Experience (render as readable text if object)
-  if (result.experience) {
-    let exp = result.experience;
-    if (typeof exp === 'object' && exp !== null) {
-      const expPills = Object.entries(exp)
-        .filter(([k, v]) => v !== null && v !== undefined && v !== '')
-        .map(([k, v]) => {
-          let label = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          return pill(`${label}: ${v}`, "#607d8b");
-        })
-        .join(' ');
-      html += `<div><strong>Experience:</strong> ${expPills || pill('Not specified', "#bdbdbd")}</div>`;
-    } else {
-      html += `<div><strong>Experience:</strong> ${pill(exp, "#607d8b")}</div>`;
+  if (!result) return '';
+  
+  // Store the analysis for later use in the matching process
+  lastCvAnalysis = result;
+  
+  // Handle both array and object formats for recommendations
+  let recommendationsHtml = '';
+  
+  if (Array.isArray(result.recommendations) && result.recommendations.length > 0) {
+    // Handle array format
+    recommendationsHtml = `
+      <div class="recommendations">
+        <h4>Recommendations</h4>
+        <ul>
+          ${result.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+        </ul>
+      </div>`;
+  } else if (result.recommendations && typeof result.recommendations === 'object') {
+    // Handle object format with categories
+    const categories = Object.entries(result.recommendations)
+      .filter(([_, recs]) => Array.isArray(recs) && recs.length > 0);
+    
+    if (categories.length > 0) {
+      recommendationsHtml = '<div class="recommendations"><h4>Recommendations</h4>';
+      categories.forEach(([category, recs]) => {
+        const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        recommendationsHtml += `
+          <div class="recommendation-category">
+            <h5>${categoryName}</h5>
+            <ul>
+              ${recs.map(rec => `<li>${rec}</li>`).join('')}
+            </ul>
+          </div>`;
+      });
+      recommendationsHtml += '</div>';
     }
   }
-
-  // Key Information (e.g. experience_summary)
-  if (result.key_information && typeof result.key_information === 'object') {
-    Object.entries(result.key_information).forEach(([k, v]) => {
-      let label = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      html += `<div><strong>${label}:</strong> ${v}</div>`;
-    });
-  }
-
-  // Candidate Suitability (e.g. overall_fit_score, justification)
-  if (result.candidate_suitability && typeof result.candidate_suitability === 'object') {
-    if (typeof result.candidate_suitability.justification === 'string') {
-      html += `<div style="margin-top:0.5rem;"><strong>Suitability:</strong> ${result.candidate_suitability.justification}</div>`;
-    }
-    if (typeof result.candidate_suitability.overall_fit_score !== 'undefined') {
-      html += `<div><strong>Overall Fit Score:</strong> ${result.candidate_suitability.overall_fit_score}</div>`;
-    }
-  }
-
-  // Recommendations (object with arrays)
-  if (result.recommendations && typeof result.recommendations === 'object') {
-    html += `<div style="margin-top:0.5rem;"><strong>Recommendations:</strong><ul style="margin:0.25rem 0 0 1.25rem;">`;
-    Object.entries(result.recommendations).forEach(([category, recs]) => {
-      if (Array.isArray(recs) && recs.length) {
-        html += `<li><strong>${category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</strong><ul>`;
-        recs.forEach(r => {
-          html += `<li>${r}</li>`;
-        });
-        html += `</ul></li>`;
-      }
-    });
-    html += `</ul></div>`;
-  }
-
-  // Improvement Suggestions (legacy fields)
-  const suggestions = result.improvement_suggestions || result.suggestions || result.gaps;
-  if (Array.isArray(suggestions) && suggestions.length) {
-    html += `<div style="margin-top:0.5rem;"><strong>Suggestions for Improvement:</strong><ul style="margin:0.25rem 0 0 1.25rem;">${suggestions.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
-  }
-
-  return html || 'No details extracted.';
+  
+  const html = `
+    <div class="cv-analysis">
+      <h3>CV Analysis Summary</h3>
+      ${recommendationsHtml || '<p>No recommendations available.</p>'}
+    </div>
+  `;
+  
+  return html;
 }
