@@ -1,12 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
 from dotenv import load_dotenv
-import os
 import shutil
-from typing import List, Dict, Any
+from typing import List
 from datetime import datetime
 
 from models import JobRequirements, CVAnalysis, MatchingScore
