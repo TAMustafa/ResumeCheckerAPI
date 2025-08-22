@@ -226,6 +226,7 @@ ResumeChecker/
 
 - **Prompts:**  
   Prompts are designed for robust, structured JSON output compatible with Pydantic and FastAPI. You can further customize them in `prompts.py`.
+  Note: The CV analysis prompt intentionally analyzes the CV on its own merits (without job requirements context). The comparison against job requirements happens later in the matching/score step.
 
 - **Models:**  
   Models are now more granular and robust, supporting nested structures for skills, experience, and recommendations. See `models.py` for details.

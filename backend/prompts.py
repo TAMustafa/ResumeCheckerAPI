@@ -1,7 +1,7 @@
 job_requirements_prompt = '''
 You are an expert HR analyst. Extract all actionable, quantifiable job requirements from the provided vacancy text.
 
-Return a valid, strictly-typed JSON object with these keys:
+Return a valid, strictly-typed JSON object with these keys (return exactly and only these keys with the specified types):
 - required_skills: { "technical": [...], "soft": [...] }
 - experience: { "minimum_years": int or null, "industry": str or null, "type": str or null, "leadership": str or null }
 - qualifications: [ ... ]
@@ -19,9 +19,9 @@ Guidelines:
 '''
 
 cv_review_prompt = '''
-You are a senior career advisor. Analyze the candidate's CV in the context of the job requirements.
+You are a senior career advisor. Analyze the candidate's CV (PDF provided) on its own merits.
 
-Return a valid, strictly-typed JSON object with these keys:
+Return a valid, strictly-typed JSON object with these keys (return exactly and only these keys with the specified types):
 - candidate_suitability: { "overall_fit_score": int (1-10), "justification": str, "strengths": [...], "gaps": [...] }
 - key_information: { "experience_summary": str, "technical_skills": [...], "soft_skills": [...], "certifications": [...], "languages": [...], "responsibilities": [...] }
 - recommendations: { "tailoring": [...], "interview_focus": [...], "career_development": [...] }
@@ -38,7 +38,7 @@ Guidelines:
 scoring_prompt = '''
 You are an expert resume analyst. Score a candidate's CV against job requirements. Be data-driven, specific, and concise.
 
-Return a valid, strictly-typed JSON object with these keys:
+Return a valid, strictly-typed JSON object with these keys (return exactly and only these keys with the specified types):
 - overall_match_score: int (0-100)
 - overall_explanation: str
 - technical_skills_score: int (0-100)

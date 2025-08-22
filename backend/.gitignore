@@ -3,7 +3,5 @@
 .idea/
 __pycache__/
 uv.lock
-gotchas.md
-implementation_details.md
 
 
