@@ -25,6 +25,7 @@ tabBtns.forEach((btn, idx) => {
 const cvUpload = document.getElementById('cv-upload');
 const uploadBtn = document.getElementById('upload-btn');
 const savedCvsSelect = document.getElementById('saved-cvs');
+const deleteCvBtn = document.getElementById('delete-cv-btn');
 const fileName = document.getElementById('file-name');
 const jobDescription = document.getElementById('job-description');
 const analyzeBtn = document.getElementById('analyze-btn');
@@ -112,6 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   resetResults();
   validateForm();
   await fetchUploadedCVs();
+  updateDeleteButtonState();
 });
 
 // Fetch list of previously uploaded CVs from the backend
@@ -142,6 +144,9 @@ function updateCvDropdown(cvs) {
     option.textContent = cv.originalname || cv.filename;
     savedCvsSelect.appendChild(option);
   });
+
+  // Keep delete button state in sync
+  updateDeleteButtonState();
 }
 
 // Handle CV selection from dropdown
@@ -157,6 +162,7 @@ function handleCvSelect(event) {
   cvFile = { name: selectedCv, isFromDropdown: true };
   validateForm();
   resetResults();
+  updateDeleteButtonState();
 }
 
 // Update the file name display when a file is selected
@@ -166,6 +172,7 @@ function handleFileUpload(event) {
   // Reset dropdown selection when a new file is uploaded
   if (savedCvsSelect) {
     savedCvsSelect.selectedIndex = 0;
+    updateDeleteButtonState();
   }
   
   if (file && file.type === 'application/pdf') {
@@ -224,6 +231,52 @@ function clearAll() {
   validateForm();
   // Switch to Job Vacancy tab after clearing
   tabBtns[0].click();
+  if (savedCvsSelect) {
+    savedCvsSelect.selectedIndex = 0;
+  }
+  updateDeleteButtonState();
+}
+
+// Enable/disable delete button based on selection
+function updateDeleteButtonState() {
+  if (!deleteCvBtn) return;
+  deleteCvBtn.disabled = !savedCvsSelect || !savedCvsSelect.value;
+}
+
+// Delete selected CV
+if (deleteCvBtn) {
+  deleteCvBtn.addEventListener('click', async () => {
+    const selected = savedCvsSelect?.value;
+    if (!selected) return;
+
+    const confirmed = confirm(`Delete "${selected}"? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/uploaded-cvs/${encodeURIComponent(selected)}`, {
+        method: 'DELETE'
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Failed to delete: ${resp.status} ${text}`);
+      }
+
+      // Refresh list and UI state
+      await fetchUploadedCVs();
+      if (savedCvsSelect) savedCvsSelect.selectedIndex = 0;
+      updateDeleteButtonState();
+
+      // Clear file input and state
+      cvUpload.value = '';
+      fileName.textContent = 'No file chosen';
+      cvFile = null;
+      validateForm();
+      resetResults();
+    } catch (err) {
+      console.error('Error deleting CV:', err);
+      alert('Error deleting CV. Please try again.');
+    }
+  });
 }
 
 // Main function to handle document analysis
