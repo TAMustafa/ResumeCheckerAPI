@@ -150,6 +150,54 @@ async def get_uploaded_cv(filename: str):
             detail=f"Error retrieving CV: {str(e)}"
         )
 
+@app.delete("/api/uploaded-cvs/{filename}", status_code=204)
+async def delete_uploaded_cv(filename: str):
+    """
+    Delete an uploaded CV file. Only allows deletion of PDF files inside the
+    configured upload directory. Returns 204 on success.
+    """
+    try:
+        # Only allow PDF files
+        if not filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+
+        file_path = UPLOAD_DIR / filename
+
+        # Prevent directory traversal and ensure file exists
+        try:
+            resolved = file_path.resolve()
+            if not resolved.is_relative_to(UPLOAD_DIR.resolve()) or not resolved.is_file():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="File not found"
+                )
+        except (ValueError, RuntimeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid filename"
+            )
+
+        # Perform deletion
+        resolved.unlink(missing_ok=False)
+        # 204 No Content
+        return
+    
+    except HTTPException:
+        raise
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting CV: {str(e)}"
+        )
+
 class ScoreRequest(BaseModel):
     cv_analysis: dict
     job_requirements: dict

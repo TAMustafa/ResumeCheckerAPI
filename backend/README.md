@@ -99,6 +99,13 @@ The backend provides the following RESTful endpoints:
   }
   ```
 
+- `DELETE /api/uploaded-cvs/{filename}`: Delete a previously uploaded CV (PDF only)
+
+  - Only accepts filenames ending with `.pdf`
+  - Returns `204 No Content` on successful deletion
+  - Returns `404 Not Found` if the file does not exist
+  - Returns `400 Bad Request` for invalid filenames or non-PDF files
+
   **Returns:**  
   Structured job requirements as JSON, e.g.:
 
