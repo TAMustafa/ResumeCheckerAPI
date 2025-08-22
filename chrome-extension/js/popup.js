@@ -216,9 +216,6 @@ function resetResults() {
   
   // Clear summary section if present
   const summaryDiv = document.getElementById('summary-div');
-  if (summaryDiv) {
-    summaryDiv.innerHTML = '';
-  }
   if (summaryDiv) summaryDiv.remove();
 }
 
@@ -501,26 +498,6 @@ function updateResultsUI(score, cvAnalysis) {
 // Helper function to update a progress bar
 function updateProgressBar(progressElement, percentage) {
   progressElement.value = percentage ?? 0;
-  
-  // For the score circle
-  if (progressElement.id === 'match-score') {
-    const scoreCircle = document.querySelector('.score-circle');
-    if (scoreCircle) {
-      scoreCircle.style.setProperty('--progress', `${percentage ?? 0}%`);
-    }
-  }
-}
-
-// Helper function to update a list
-function updateList(listElement, items) {
-  listElement.innerHTML = '';
-  if (items && items.length > 0) {
-    items.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      listElement.appendChild(li);
-    });
-  }
 }
 
 // Set loading state
