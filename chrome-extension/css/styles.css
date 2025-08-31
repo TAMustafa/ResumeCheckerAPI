@@ -82,20 +82,7 @@ button {
 
 /* 6. Use semantic HTML for accessibility (already done in popup.html) */
 
-/* 7. Custom summary badges: use Pico's color palette */
-#summary-div span {
-  margin-right: 4px;
-  margin-bottom: 2px;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 12px;
-  padding: 2px 8px;
-  font-size: 12px;
-  display: inline-block;
-}
-#summary-div strong {
-  color: var(--primary);
-}
+/* 7. Custom summary badges: consolidated later in file near related UI styles */
 
 /* 8. Progress bars: use Pico's color and border-radius */
 progress {

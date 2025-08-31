@@ -60,6 +60,8 @@ let LLM_KEYS = {}; // { openai, deepseek, anthropic }
 let LLM_MODELS = {}; // per-provider model mapping
 let LLM_MODEL = 'gpt-4o';
 let isAnalyzing = false;
+// Debug flag to control console noise
+const DEBUG = false;
 
 async function loadConfig() {
   return new Promise((resolve) => {
@@ -275,20 +277,7 @@ function resetResults() {
   if (summaryDiv) summaryDiv.remove();
 }
 
-function clearAll() {
-  cvUpload.value = '';
-  fileName.textContent = 'No file chosen';
-  jobDescription.value = '';
-  cvFile = null;
-  resetResults();
-  validateForm();
-  // Switch to Job Vacancy tab after clearing
-  tabJobBtn.click();
-  if (savedCvsSelect) {
-    savedCvsSelect.selectedIndex = 0;
-  }
-  updateDeleteButtonState();
-}
+// clearAll() was unused and has been removed
 
 // Enable/disable delete button based on selection
 function updateDeleteButtonState() {
@@ -377,7 +366,7 @@ async function analyzeDocuments() {
 async function analyzeJobDescription(description) {
   try {
     ensureKey();
-    console.log('Sending job description to analyze:', description);
+    if (DEBUG) console.log('Sending job description to analyze:', description);
     
     const response = await apiFetch(`/analyze-job-vacancy`, {
       method: 'POST',
@@ -397,7 +386,7 @@ async function analyzeJobDescription(description) {
     }
     
     const result = await response.json();
-    console.log('Job analysis result:', result);
+    if (DEBUG) console.log('Job analysis result:', result);
     return result;
   } catch (error) {
     console.error('Error analyzing job description:', error);
@@ -413,11 +402,11 @@ async function analyzeCV(file) {
     ensureKey();
     if (file.isFromDropdown) {
       // If the file is from the dropdown, we need to fetch it first
-      console.log('Analyzing CV from dropdown:', file.name);
+      if (DEBUG) console.log('Analyzing CV from dropdown:', file.name);
       try {
         // Ensure the filename is properly encoded for the URL
         const encodedFilename = encodeURIComponent(file.name);
-        console.log('Fetching CV from:', `${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
+        if (DEBUG) console.log('Fetching CV from:', `${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
         
         const response = await apiFetch(`/uploaded_cvs/${encodedFilename}`);
         
@@ -441,7 +430,7 @@ async function analyzeCV(file) {
       }
     } else {
       // Regular file upload
-      console.log('Uploading CV file:', file.name);
+      if (DEBUG) console.log('Uploading CV file:', file.name);
       formData.append('file', file, file.name);
     }
     
@@ -461,7 +450,7 @@ async function analyzeCV(file) {
     }
     
     const result = await response.json();
-    console.log('CV analysis result:', result);
+    if (DEBUG) console.log('CV analysis result:', result);
     return result;
   } catch (error) {
     console.error('Error analyzing CV:', error);
