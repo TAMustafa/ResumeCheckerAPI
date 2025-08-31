@@ -3,5 +3,6 @@
 .idea/
 __pycache__/
 uv.lock
+uploaded_cvs
 
 

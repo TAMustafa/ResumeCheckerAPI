@@ -5,18 +5,46 @@ import json
 from pathlib import Path
 from pydantic import ValidationError
 from pydantic_ai import Agent, BinaryContent
-from dotenv import load_dotenv
+import os
 
 from models import JobRequirements, CVAnalysis, MatchingScore
 from prompts import job_requirements_prompt, cv_review_prompt, scoring_prompt
 from cache_utils import shared_cache
 
-# Load environment variables
-load_dotenv()
-
 # Configure logfire logging
 logfire.configure()
 logfire.instrument_pydantic_ai()
+
+# Concurrency-safe API key swap lock
+_key_lock = asyncio.Lock()
+
+class _ApiKeyContext:
+    """
+    Async context manager to temporarily set OPENAI_API_KEY process env
+    for the duration of a single LLM call. Uses a global asyncio.Lock to
+    avoid races across concurrent requests.
+    """
+    def __init__(self, api_key: str | None):
+        self.api_key = api_key
+        self._old = None
+
+    async def __aenter__(self):
+        if not self.api_key:
+            return
+        await _key_lock.acquire()
+        self._old = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = self.api_key
+
+    async def __aexit__(self, exc_type, exc, tb):
+        try:
+            if self.api_key is not None:
+                if self._old is None:
+                    os.environ.pop("OPENAI_API_KEY", None)
+                else:
+                    os.environ["OPENAI_API_KEY"] = self._old
+        finally:
+            if _key_lock.locked():
+                _key_lock.release()
 
 # --- Agent Definitions ---
 # Configure model settings with temperature=0.3 for more focused, deterministic outputs
@@ -48,7 +76,7 @@ scoring_agent = Agent(
 )
 
 # --- Core Functions ---
-async def analyze_job_vacancy(vacancy_text: str) -> JobRequirements:
+async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None) -> JobRequirements:
     """
     Extract requirements from job vacancy text
     """
@@ -60,12 +88,13 @@ async def analyze_job_vacancy(vacancy_text: str) -> JobRequirements:
             return JobRequirements(**cached)
 
         async def _compute():
-            result = await asyncio.wait_for(
-                job_requirements_agent.run(
-                    f"Extract the job requirements and any other key information from the vacancy text: {vacancy_text}"
-                ),
-                timeout=60,
-            )
+            async with _ApiKeyContext(api_key):
+                result = await asyncio.wait_for(
+                    job_requirements_agent.run(
+                        f"Extract the job requirements and any other key information from the vacancy text: {vacancy_text}"
+                    ),
+                    timeout=60,
+                )
             # store a plain dict in cache
             await shared_cache.set(key, result.output.model_dump())
             return result.output
@@ -80,7 +109,7 @@ async def analyze_job_vacancy(vacancy_text: str) -> JobRequirements:
         logfire.error(f"Unexpected error in analyze_job_vacancy: {e}")
         raise
 
-async def analyze_cv(pdf_path: Path) -> CVAnalysis:
+async def analyze_cv(pdf_path: Path, api_key: str | None = None) -> CVAnalysis:
     """
     Analyze CV and extract key information
     """
@@ -92,13 +121,14 @@ async def analyze_cv(pdf_path: Path) -> CVAnalysis:
             return CVAnalysis(**cached)
 
         async def _compute():
-            result = await asyncio.wait_for(
-                cv_review_agent.run([
-                    "Analyze the CV and provide a bulletpoint summary of strengths, weaknesses, and improvement recommendations.",
-                    BinaryContent(data=data, media_type='application/pdf'),
-                ]),
-                timeout=90,
-            )
+            async with _ApiKeyContext(api_key):
+                result = await asyncio.wait_for(
+                    cv_review_agent.run([
+                        "Analyze the CV and provide a bulletpoint summary of strengths, weaknesses, and improvement recommendations.",
+                        BinaryContent(data=data, media_type='application/pdf'),
+                    ]),
+                    timeout=90,
+                )
             await shared_cache.set(key, result.output.model_dump())
             return result.output
 
@@ -112,7 +142,7 @@ async def analyze_cv(pdf_path: Path) -> CVAnalysis:
         logfire.error(f"Unexpected error in analyze_cv: {e}")
         raise
 
-async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequirements) -> MatchingScore:
+async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequirements, api_key: str | None = None) -> MatchingScore:
     """
     Score how well the CV matches the job requirements
     """
@@ -130,14 +160,15 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
             return MatchingScore(**cached)
 
         async def _compute():
-            result = await asyncio.wait_for(
-                scoring_agent.run(
-                    "Provide a score between 0 and 100 based on how well the CV matches the job requirements based on common skills and requirements.\n\n"
-                    f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
-                    f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"
-                ),
-                timeout=60,
-            )
+            async with _ApiKeyContext(api_key):
+                result = await asyncio.wait_for(
+                    scoring_agent.run(
+                        "Provide a score between 0 and 100 based on how well the CV matches the job requirements based on common skills and requirements.\n\n"
+                        f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
+                        f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"
+                    ),
+                    timeout=60,
+                )
             await shared_cache.set(key, result.output.model_dump())
             return result.output
 

@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: resumechecker_app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOGFIRE_API_KEY=${LOGFIRE_API_KEY}
+      - LOGFIRE_PROJECT=${LOGFIRE_PROJECT}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - PORT=8000
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-10}
+    volumes:
+      - uploaded_cvs:/app/uploaded_cvs
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2.8
+    container_name: resumechecker_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  uploaded_cvs:
+  caddy_data:
+  caddy_config:

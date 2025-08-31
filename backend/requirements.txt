@@ -1,0 +1,8 @@
+fastapi>=0.115.0
+logfire>=0.16.1
+pydantic-ai>=0.2.12
+python-dotenv>=1.0.1
+uvicorn[standard]>=0.30.6
+gunicorn>=21.2.0
+python-multipart>=0.0.9
+openai>=1.37.0

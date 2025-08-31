@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Header, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import shutil
 from typing import List
 from datetime import datetime
+import os
 
 from models import JobRequirements, CVAnalysis, MatchingScore
 from agents import analyze_job_vacancy, analyze_cv, score_cv_match
@@ -19,13 +20,40 @@ app = FastAPI()
 UPLOAD_DIR = Path("uploaded_cvs")
 UPLOAD_DIR.mkdir(exist_ok=True)  # Create directory if it doesn't exist
 
-# Allow CORS for local development (Chrome extension)
+# Max upload size (in MB). Defaults to 10MB. Applies to Content-Length and verified file size on disk.
+try:
+    MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "10"))
+    if MAX_UPLOAD_MB <= 0:
+        MAX_UPLOAD_MB = 10
+except Exception:
+    MAX_UPLOAD_MB = 10
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
+# CORS configuration
+# Set ALLOWED_ORIGINS in env as a comma-separated list, e.g.:
+#   ALLOWED_ORIGINS=https://yourdomain.tld,chrome-extension://<ext-id>
+_allowed_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if not _allowed_env:
+    # Fallback defaults when env is unset or blank
+    defaults = [
+        "http://91.98.122.7",  # Hetzner public IP (HTTP via Caddy)
+        "http://localhost:8000",
+        "chrome-extension://*",
+    ]
+    ALLOWED_ORIGINS = defaults
+else:
+    ALLOWED_ORIGINS = [o.strip() for o in _allowed_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, restrict this!
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "*",
+        "X-OpenAI-Key",
+    ],
+    expose_headers=["*"],
 )
 
 @app.get("/", response_class=HTMLResponse)
@@ -36,30 +64,59 @@ class VacancyRequest(BaseModel):
     vacancy_text: str
 
 @app.post("/analyze-job-vacancy")
-async def api_analyze_job_vacancy(req: VacancyRequest):
+async def api_analyze_job_vacancy(req: VacancyRequest, x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key")):
     try:
-        result = await analyze_job_vacancy(req.vacancy_text)
+        result = await analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key)
         return result.model_dump()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/analyze-cv")
-async def api_analyze_cv(file: UploadFile = File(...)):
+async def api_analyze_cv(
+    request: Request,
+    file: UploadFile = File(...),
+    x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key"),
+):
     try:
+        # Enforce Content-Length if provided
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File too large. Max {MAX_UPLOAD_MB}MB",
+                    )
+            except ValueError:
+                # ignore malformed header and continue with on-disk size validation
+                pass
         # Ensure the file is a PDF
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only PDF files are accepted"
             )
-            
+        
         # Save the uploaded file
         file_path = UPLOAD_DIR / file.filename
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+        # Verify size on disk
+        try:
+            if file_path.stat().st_size > MAX_UPLOAD_BYTES:
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File too large. Max {MAX_UPLOAD_MB}MB",
+                )
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Upload failed: file missing after write"
+            )
+        
         # Analyze the CV
-        result = await analyze_cv(file_path)
+        result = await analyze_cv(file_path, api_key=x_openai_key)
         return result.model_dump()
         
     except HTTPException:
@@ -203,11 +260,16 @@ class ScoreRequest(BaseModel):
     job_requirements: dict
 
 @app.post("/score-cv-match")
-async def api_score_cv_match(req: ScoreRequest):
+async def api_score_cv_match(req: ScoreRequest, x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key")):
     try:
         cv_obj = CVAnalysis(**req.cv_analysis)
         job_obj = JobRequirements(**req.job_requirements)
-        result = await score_cv_match(cv_obj, job_obj)
+        result = await score_cv_match(cv_obj, job_obj, api_key=x_openai_key)
         return result.model_dump() if hasattr(result, 'model_dump') else result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}

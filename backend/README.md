@@ -1,6 +1,16 @@
-# Resume Checker Application
+### Healthcheck
 
-A powerful AI-driven application that analyzes resumes and matches them against job descriptions. The application provides detailed insights into how well a candidate's qualifications match job requirements and offers improvement suggestions.
+- `GET /healthz`: Returns `{ "status": "ok" }` for load balancers and deployment checks.
+
+### Authentication / API key propagation
+
+- The backend supports a per-request OpenAI API key via the header `X-OpenAI-Key`.
+- The Chrome extension stores the user's key and includes it on every request.
+- If the header is missing, the backend falls back to the server environment `OPENAI_API_KEY` (if set).
+
+# Resume Checker API
+
+FastAPI backend that analyzes resumes (PDF) and matches them against job descriptions using OpenAI via pydantic-ai agents. Provides structured JSON responses and scoring.
 
 ## Features
 
@@ -8,8 +18,7 @@ A powerful AI-driven application that analyzes resumes and matches them against 
 - **Job Description Analysis**: Parse job descriptions to extract key requirements
 - **Matching Score**: Get a detailed matching score between a CV and job description
 - **Improvement Suggestions**: Receive actionable recommendations to improve your resume
-- **User-Friendly Interface**: Intuitive web interface built with Streamlit
-- **Fast and Responsive**: Caching and optimized feedback for fast user experience
+- **Fast and Responsive**: In-process TTL cache with LRU keeps latency and cost low
 - **Downloadable Results**: Download your analysis as JSON
 - **Raw JSON Output**: Inspect the full structured analysis if desired
 
@@ -17,9 +26,9 @@ A powerful AI-driven application that analyzes resumes and matches them against 
 
 - Python 3.12 or higher
 - pip (Python package installer)
-- OpenAI API key (for AI-powered analysis)
+- OpenAI API key (for AI-powered analysis) — per-user via Chrome extension or server-wide via environment
 
-## Installation
+## Local Development
 
 1. **Clone the repository**
 
@@ -47,18 +56,15 @@ A powerful AI-driven application that analyzes resumes and matches them against 
    ```
 
 4. **Set up environment variables**
-   Create a `.env` file in the project root and add your OpenAI API key:
+   You can run with a server-wide key (fallback) and configure allowed origins:
+   ```bash
+   # optional fallback if user does not provide a key from the extension
+   OPENAI_API_KEY=sk-...
+   # comma-separated list of allowed origins (API domain and extension origin)
+   ALLOWED_ORIGINS=https://api.example.com,chrome-extension://*
    ```
-   OPENAI_API_KEY=your_openai_api_key_here
-   ```
 
-## Running the Application
-
-The application consists of a FastAPI backend:
-
-### Backend API (FastAPI)
-
-Run the FastAPI server in a terminal window:
+### Run the FastAPI server
 
 ```bash
 uvicorn app:app --reload
@@ -66,7 +72,7 @@ uvicorn app:app --reload
 
 The API will be available at `http://localhost:8000`
 
-## Usage Guide
+## Usage
 
 - Interact with the API using tools like [Swagger UI](http://localhost:8000/docs) or [Redoc](http://localhost:8000/redoc).
 - You can also use `curl`, Postman, or integrate with your own frontend.
@@ -217,6 +223,9 @@ ResumeChecker/
 ├── models.py               # Pydantic models
 ├── prompts.py              # AI prompt templates
 ├── pyproject.toml          # Project dependencies
+├── Dockerfile               # Production image
+├── docker-compose.yml       # App + Caddy reverse proxy
+├── Caddyfile                # TLS and reverse proxy config (set your domain)
 ├── uploaded_cvs/           # Directory for storing uploaded CVs
 │   └── *.pdf              # Uploaded CV files
 └── README.md               # This file
@@ -236,11 +245,49 @@ ResumeChecker/
 - **API Connection Errors:**  
   Ensure the FastAPI server is running and accessible at the correct URL.
 
+- **CORS/Origin Errors:**  
+  Set `ALLOWED_ORIGINS` (comma-separated) to include your API domain and Chrome extension origin (e.g., `chrome-extension://<extension-id>`). In dev, `chrome-extension://*` is acceptable.
+
+- **Missing User Key:**  
+  The extension must be configured with the user's OpenAI API key; otherwise the server fallback key will be used (if provided).
+
 - **Missing Dependencies:**  
   Run `pip install -e .` to ensure all dependencies are installed.
 
 - **PDF Parsing Issues:**  
   Ensure the uploaded file is a valid PDF.
+
+## Production Deployment (Docker + Caddy)
+
+This repo includes `docker-compose.yml` and a hardened `Caddyfile` for TLS termination and reverse proxy.
+
+1) Set environment in `.env` or your secrets store:
+
+```
+OPENAI_API_KEY=sk-...                 # Optional server fallback
+LOGFIRE_API_KEY=lfk_...               # Optional observability
+LOGFIRE_PROJECT=your-project          # Optional
+ALLOWED_ORIGINS=https://api.example.com,chrome-extension://<id>
+DOMAIN=api.example.com                # Domain served by Caddy (required for HTTPS)
+MAX_UPLOAD_MB=10                      # Max PDF size in MB (default 10)
+GUNICORN_WORKERS=2                    # Optional tuning
+GUNICORN_THREADS=1                    # Optional tuning
+GUNICORN_TIMEOUT=60                   # Optional tuning
+GUNICORN_KEEPALIVE=5                  # Optional tuning
+```
+
+2) Start:
+
+```bash
+docker compose up -d --build
+```
+
+- Caddy serves HTTPS at `https://$DOMAIN` and proxies to the app at `app:8000`.
+- Healthchecks: app `/healthz`, Caddy HTTP 80.
+
+Notes:
+- Set `ALLOWED_ORIGINS` to include your prod domain and the Chrome extension origin.
+- `uploaded_cvs/` is mounted as a volume to persist files across restarts.
 
 ## Contributing
 
@@ -252,6 +299,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Built with [FastAPI](https://fastapi.tiangolo.com/) and [Streamlit](https://streamlit.io/)
+- Built with [FastAPI](https://fastapi.tiangolo.com/)
 - Powered by OpenAI's GPT models
 - Icons by [Material Design Icons](https://material.io/resources/icons/)
