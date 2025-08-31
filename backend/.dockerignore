@@ -15,3 +15,8 @@ node_modules/
 __dist__/
 .idea/
 .vscode/
+.env
+gotachas.md
+README.md
+quickreference.md
+

@@ -47,36 +47,40 @@ class _ApiKeyContext:
                 _key_lock.release()
 
 # --- Agent Definitions ---
-# Configure model settings with temperature=0.3 for more focused, deterministic outputs
+# Configure model settings with temperature=0.1 for focused, less random outputs
 model_settings = {
-    'temperature': 0.1,   # Lower temperature for more focused, less random outputs
-    'max_tokens': 2000    # Ensure we have enough tokens for detailed responses
+    'temperature': 0.1,
+    'max_tokens': 2000,
 }
 
-# Define agents with their respective models and prompts
-job_requirements_agent = Agent(
-    'openai:gpt-4o',
-    output_type=JobRequirements,
-    system_prompt=job_requirements_prompt,
-    model_settings=model_settings
-)
+# Small in-process cache of Agent instances by (task, provider, model)
+_AGENT_CACHE: dict[tuple[str, str, str], Agent] = {}
 
-cv_review_agent = Agent(
-    'openai:gpt-4o',
-    output_type=CVAnalysis,
-    system_prompt=cv_review_prompt,
-    model_settings=model_settings
-)
+def _model_string(provider: str, model: str | None) -> str:
+    p = (provider or 'openai').lower()
+    if not model or not model.strip():
+        # sensible defaults
+        return 'openai:gpt-4o'
+    return f"{p}:{model.strip()}"
 
-scoring_agent = Agent(
-    'openai:gpt-4o',
-    output_type=MatchingScore,
-    system_prompt=scoring_prompt,
-    model_settings=model_settings
-)
+def _get_agent(task: str, provider: str | None, model: str | None):
+    key = (task, (provider or 'openai').lower(), (model or '').strip() or 'gpt-4o')
+    if key in _AGENT_CACHE:
+        return _AGENT_CACHE[key]
+    model_id = _model_string(key[1], key[2])
+    if task == 'job':
+        agent = Agent(model_id, output_type=JobRequirements, system_prompt=job_requirements_prompt, model_settings=model_settings)
+    elif task == 'cv':
+        agent = Agent(model_id, output_type=CVAnalysis, system_prompt=cv_review_prompt, model_settings=model_settings)
+    elif task == 'score':
+        agent = Agent(model_id, output_type=MatchingScore, system_prompt=scoring_prompt, model_settings=model_settings)
+    else:
+        raise ValueError(f"Unknown task '{task}'")
+    _AGENT_CACHE[key] = agent
+    return agent
 
 # --- Core Functions ---
-async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None) -> JobRequirements:
+async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None, provider: str | None = None, model: str | None = None) -> JobRequirements:
     """
     Extract requirements from job vacancy text
     """
@@ -89,8 +93,9 @@ async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None) -> 
 
         async def _compute():
             async with _ApiKeyContext(api_key):
+                agent = _get_agent('job', provider, model)
                 result = await asyncio.wait_for(
-                    job_requirements_agent.run(
+                    agent.run(
                         f"Extract the job requirements and any other key information from the vacancy text: {vacancy_text}"
                     ),
                     timeout=60,
@@ -109,7 +114,7 @@ async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None) -> 
         logfire.error(f"Unexpected error in analyze_job_vacancy: {e}")
         raise
 
-async def analyze_cv(pdf_path: Path, api_key: str | None = None) -> CVAnalysis:
+async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str | None = None, model: str | None = None) -> CVAnalysis:
     """
     Analyze CV and extract key information
     """
@@ -122,8 +127,9 @@ async def analyze_cv(pdf_path: Path, api_key: str | None = None) -> CVAnalysis:
 
         async def _compute():
             async with _ApiKeyContext(api_key):
+                agent = _get_agent('cv', provider, model)
                 result = await asyncio.wait_for(
-                    cv_review_agent.run([
+                    agent.run([
                         "Analyze the CV and provide a bulletpoint summary of strengths, weaknesses, and improvement recommendations.",
                         BinaryContent(data=data, media_type='application/pdf'),
                     ]),
@@ -142,7 +148,7 @@ async def analyze_cv(pdf_path: Path, api_key: str | None = None) -> CVAnalysis:
         logfire.error(f"Unexpected error in analyze_cv: {e}")
         raise
 
-async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequirements, api_key: str | None = None) -> MatchingScore:
+async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequirements, api_key: str | None = None, provider: str | None = None, model: str | None = None) -> MatchingScore:
     """
     Score how well the CV matches the job requirements
     """
@@ -161,8 +167,9 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
 
         async def _compute():
             async with _ApiKeyContext(api_key):
+                agent = _get_agent('score', provider, model)
                 result = await asyncio.wait_for(
-                    scoring_agent.run(
+                    agent.run(
                         "Provide a score between 0 and 100 based on how well the CV matches the job requirements based on common skills and requirements.\n\n"
                         f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
                         f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"

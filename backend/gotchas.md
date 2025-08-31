@@ -9,3 +9,8 @@
 - `uploaded_cvs/` must be on a persistent volume in production; consider quota and retention policies.
 - Caddy uses `{$DOMAIN}` for automatic HTTPS; ensure DNS A/AAAA records point to the server and port 80/443 are open.
 - Gunicorn settings are env-driven; tune `GUNICORN_WORKERS/THREADS/TIMEOUT` based on CPU and expected model latencies.
+
+## API Keys & Providers
+- When `REQUIRE_USER_API_KEY=true`, all LLM endpoints require `X-OpenAI-Key` and return 401 if missing.
+- The extension stores keys per provider but the backend currently supports only `openai`. If `X-LLM-Provider` is not `openai`, endpoints return 400 (by design) until DeepSeek/Anthropic are implemented.
+- Health endpoint `/healthz` never requires a key.

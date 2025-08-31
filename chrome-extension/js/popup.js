@@ -1,24 +1,37 @@
+function ensureKey() {
+  const key = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
+  if (!key || key.trim().length === 0) {
+    alert('Please set your LLM API key in the extension Options first.');
+    // open options page for convenience
+    if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+    throw new Error('Missing LLM API key');
+  }
+}
+
 // Tab logic
-const tabBtns = [
-  document.getElementById('tab-job'),
-  document.getElementById('tab-cv'),
-  document.getElementById('tab-result')
-];
+const tabJobBtn = document.getElementById('tab-job');
+const tabCvBtn = document.getElementById('tab-cv');
+const tabResultBtn = document.getElementById('tab-result');
+const tabBtns = [tabJobBtn, tabCvBtn, tabResultBtn];
 const tabSections = [
   document.getElementById('section-job'),
   document.getElementById('section-cv'),
   document.getElementById('section-result')
 ];
 
-// Tab switching
-tabBtns.forEach((btn, idx) => {
-  btn.addEventListener('click', () => {
-    tabBtns.forEach((b, i) => {
-      b.classList.toggle('active', i === idx);
-      b.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-      tabSections[i].classList.toggle('active', i === idx);
-    });
+function switchToTab(idx) {
+  tabBtns.forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+    b.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+    tabSections[i].classList.toggle('active', i === idx);
   });
+}
+
+tabJobBtn.addEventListener('click', () => switchToTab(0));
+tabCvBtn.addEventListener('click', () => switchToTab(1));
+tabResultBtn.addEventListener('click', async () => {
+  if (tabResultBtn.disabled || isAnalyzing) return;
+  await analyzeDocuments();
 });
 
 // DOM Elements (update selectors for new structure)
@@ -28,12 +41,9 @@ const savedCvsSelect = document.getElementById('saved-cvs');
 const deleteCvBtn = document.getElementById('delete-cv-btn');
 const fileName = document.getElementById('file-name');
 const jobDescription = document.getElementById('job-description');
-const analyzeBtn = document.getElementById('analyze-btn');
-const spinner = document.getElementById('spinner');
 const resultsSection = document.getElementById('results');
 const matchScore = document.getElementById('match-score');
 const overallExplanation = document.getElementById('overall-explanation');
-const clearBtn = document.getElementById('clear-btn');
 
 // New DOM elements for individual analysis
 const analyzeJobBtn = document.getElementById('analyze-job-btn');
@@ -41,8 +51,47 @@ const analyzeCvBtn = document.getElementById('analyze-cv-btn');
 const jobAnalysisSummary = document.getElementById('job-analysis-summary');
 const cvAnalysisSummary = document.getElementById('cv-analysis-summary');
 
-// Backend API URL - Update this to your backend URL
-const API_BASE_URL = 'http://localhost:8000';
+// Fixed backend API URL (users don't change this)
+let API_BASE_URL = 'http://91.98.122.7';
+// Provider + per-provider keys
+let LLM_PROVIDER = 'openai';
+let OPENAI_KEY = null; // kept for backward compatibility in storage
+let LLM_KEYS = {}; // { openai, deepseek, anthropic }
+let LLM_MODELS = {}; // per-provider model mapping
+let LLM_MODEL = 'gpt-4o';
+let isAnalyzing = false;
+
+async function loadConfig() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], (items) => {
+      // Force OpenAI as the only provider for now
+      LLM_PROVIDER = 'openai';
+      LLM_KEYS = items?.llmKeys || {};
+      LLM_MODELS = items?.llmModels || {};
+      // Back-compat: if no llmKeys.openai, use legacy openaiKey
+      if (items?.openaiKey && !LLM_KEYS.openai) {
+        LLM_KEYS.openai = items.openaiKey;
+      }
+      OPENAI_KEY = LLM_KEYS.openai || null;
+      const defaults = { openai: 'gpt-4o' };
+      LLM_MODEL = LLM_MODELS[LLM_PROVIDER] || defaults[LLM_PROVIDER] || 'gpt-4o';
+      resolve({ provider: LLM_PROVIDER, model: LLM_MODEL });
+    });
+  });
+}
+
+// Helper to include per-user key header
+async function apiFetch(path, options = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const headers = new Headers(options.headers || {});
+  // Provider header for backend (currently only 'openai' supported server-side)
+  headers.set('X-LLM-Provider', LLM_PROVIDER);
+  if (LLM_MODEL) headers.set('X-LLM-Model', LLM_MODEL);
+  // For OpenAI, keep legacy header the backend expects
+  const keyForProvider = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
+  if (keyForProvider) headers.set('X-OpenAI-Key', keyForProvider);
+  return fetch(url, { ...options, headers });
+}
 
 // Progress elements
 const techSkillsProgress = document.getElementById('tech-skills-progress');
@@ -65,7 +114,8 @@ uploadBtn.addEventListener('click', () => cvUpload.click());
 cvUpload.addEventListener('change', handleFileUpload);
 savedCvsSelect.addEventListener('change', handleCvSelect);
 jobDescription.addEventListener('input', validateForm);
-analyzeBtn.addEventListener('click', analyzeDocuments);
+// When job text changes, invalidate previous job analysis
+jobDescription.addEventListener('input', () => { jobRequirements = null; });
 
 // Analyze Job Description (individual)
 analyzeJobBtn.addEventListener('click', async () => {
@@ -79,7 +129,9 @@ analyzeJobBtn.addEventListener('click', async () => {
   jobAnalysisSummary.textContent = 'Analyzing...';
   try {
     const result = await analyzeJobDescription(desc);
+    jobRequirements = result; // cache analyzed job requirements
     jobAnalysisSummary.innerHTML = renderJobAnalysisSummary(result);
+    validateForm();
   } catch (e) {
     jobAnalysisSummary.textContent = 'Error analyzing job description.';
   }
@@ -98,18 +150,17 @@ analyzeCvBtn.addEventListener('click', async () => {
   try {
     const result = await analyzeCV(cvFile);
     cvAnalysisSummary.innerHTML = renderCvAnalysisSummary(result);
+    validateForm();
   } catch (e) {
     cvAnalysisSummary.textContent = 'Error analyzing CV.';
   }
   analyzeCvBtn.disabled = false;
 });
 
-// Remove old Clear button logic and use the new one in Result tab
-if (clearBtn) {
-  clearBtn.addEventListener('click', clearAll);
-}
+// No Clear or Analyze buttons in Result tab anymore
 
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
   resetResults();
   validateForm();
   await fetchUploadedCVs();
@@ -119,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Fetch list of previously uploaded CVs from the backend
 async function fetchUploadedCVs() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/uploaded-cvs`);
+    const response = await apiFetch(`/api/uploaded-cvs`);
     if (!response.ok) throw new Error('Failed to fetch CVs');
     
     const cvs = await response.json();
@@ -177,6 +228,8 @@ function handleFileUpload(event) {
   
   if (file && file.type === 'application/pdf') {
     cvFile = file;
+    // Invalidate previous CV analysis when a new file is chosen
+    lastCvAnalysis = null;
     // Truncate long file names
     const maxLength = 30;
     const displayName = file.name.length > maxLength 
@@ -187,6 +240,7 @@ function handleFileUpload(event) {
   } else {
     cvFile = null;
     fileName.textContent = 'No file chosen';
+    lastCvAnalysis = null;
   }
   validateForm();
   resetResults();
@@ -194,7 +248,9 @@ function handleFileUpload(event) {
 
 // Enable/disable analyze button based on form validity
 function validateForm() {
-  analyzeBtn.disabled = !(cvFile && jobDescription.value.trim());
+  // Enable Result tab ONLY when both analyses are already completed
+  const ready = !!(jobRequirements && lastCvAnalysis);
+  tabResultBtn.disabled = !ready;
 }
 
 // Reset results when user changes input
@@ -227,7 +283,7 @@ function clearAll() {
   resetResults();
   validateForm();
   // Switch to Job Vacancy tab after clearing
-  tabBtns[0].click();
+  tabJobBtn.click();
   if (savedCvsSelect) {
     savedCvsSelect.selectedIndex = 0;
   }
@@ -250,7 +306,7 @@ if (deleteCvBtn) {
     if (!confirmed) return;
 
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/uploaded-cvs/${encodeURIComponent(selected)}`, {
+      const resp = await apiFetch(`/api/uploaded-cvs/${encodeURIComponent(selected)}`, {
         method: 'DELETE'
       });
       if (!resp.ok) {
@@ -278,27 +334,33 @@ if (deleteCvBtn) {
 
 // Main function to handle document analysis
 async function analyzeDocuments() {
-  if (!cvFile || !jobDescription.value.trim()) return;
+  // Guard: need either text or analyzed job, and either file/selected CV or analyzed CV
+  if (!(jobRequirements || jobDescription.value.trim())) return;
+  if (!(cvFile || lastCvAnalysis)) return;
 
   try {
     setLoading(true);
 
-    // Step 1: Analyze job description
-    jobRequirements = await analyzeJobDescription(jobDescription.value);
+    // Step 1: Analyze job description if not already done
+    if (!jobRequirements) {
+      jobRequirements = await analyzeJobDescription(jobDescription.value);
+    }
 
-    // Step 2: Analyze CV
-    cvAnalysis = await analyzeCV(cvFile);
-    lastCvAnalysis = cvAnalysis; // Save for later use
+    // Step 2: Analyze CV if not already done
+    if (!lastCvAnalysis) {
+      cvAnalysis = await analyzeCV(cvFile);
+      lastCvAnalysis = cvAnalysis; // Save for later use
+    }
 
     // Step 3: Get matching score
-    const score = await getMatchingScore(cvAnalysis, jobRequirements);
+    const score = await getMatchingScore(lastCvAnalysis, jobRequirements);
 
     // Step 4: Update UI with results
-    updateResultsUI(score, cvAnalysis);
+    updateResultsUI(score, lastCvAnalysis);
 
     // Show results and switch to Result tab
     resultsSection.classList.remove('hidden');
-    tabBtns[2].click();
+    switchToTab(2);
   } catch (error) {
     console.error('Error analyzing documents:', error);
     alert(
@@ -314,9 +376,10 @@ async function analyzeDocuments() {
 // API: Analyze job description
 async function analyzeJobDescription(description) {
   try {
+    ensureKey();
     console.log('Sending job description to analyze:', description);
     
-    const response = await fetch(`${API_BASE_URL}/analyze-job-vacancy`, {
+    const response = await apiFetch(`/analyze-job-vacancy`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -347,6 +410,7 @@ async function analyzeCV(file) {
   const formData = new FormData();
   
   try {
+    ensureKey();
     if (file.isFromDropdown) {
       // If the file is from the dropdown, we need to fetch it first
       console.log('Analyzing CV from dropdown:', file.name);
@@ -355,7 +419,7 @@ async function analyzeCV(file) {
         const encodedFilename = encodeURIComponent(file.name);
         console.log('Fetching CV from:', `${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
         
-        const response = await fetch(`${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
+        const response = await apiFetch(`/uploaded_cvs/${encodedFilename}`);
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -381,7 +445,7 @@ async function analyzeCV(file) {
       formData.append('file', file, file.name);
     }
     
-    const response = await fetch(`${API_BASE_URL}/analyze-cv`, {
+    const response = await apiFetch(`/analyze-cv`, {
       method: 'POST',
       // Don't set Content-Type header - let the browser set it with the correct boundary
       headers: {
@@ -408,7 +472,8 @@ async function analyzeCV(file) {
 // API: Get matching score
 async function getMatchingScore(cvAnalysis, jobRequirements) {
   try {
-    const response = await fetch(`${API_BASE_URL}/score-cv-match`, {
+    ensureKey();
+    const response = await apiFetch(`/score-cv-match`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -501,15 +566,25 @@ function updateProgressBar(progressElement, percentage) {
 }
 
 // Set loading state
-function setLoading(isLoading) {
-  if (isLoading) {
-    analyzeBtn.disabled = true;
-    document.querySelector('.btn-text').textContent = 'Analyzing...';
-    spinner.classList.remove('hidden');
+function setLoading(loading) {
+  isAnalyzing = loading;
+  // compute readiness the same way as validateForm (both analyses done)
+  const ready = !!(jobRequirements && lastCvAnalysis);
+  // Disable all tabs during analysis, and keep Result disabled unless ready
+  tabBtns.forEach(b => {
+    if (loading) {
+      b.disabled = true;
+    } else {
+      b.disabled = (b === tabResultBtn) ? !ready : false;
+    }
+  });
+  // Update Result tab label to show progress
+  if (loading) {
+    tabResultBtn.textContent = 'Analyzing...';
+    switchToTab(2); // move to Result view during analysis
   } else {
-    analyzeBtn.disabled = !(cvFile && jobDescription.value.trim().length > 0);
-    document.querySelector('.btn-text').textContent = 'Analyze Match';
-    spinner.classList.add('hidden');
+    tabResultBtn.textContent = 'Result';
+    validateForm();
   }
 }
 

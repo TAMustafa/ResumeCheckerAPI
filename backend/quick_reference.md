@@ -1,18 +1,25 @@
 # Quick Reference
 
-- Base URL: https://$DOMAIN
+- Base URL: http://$IP (Caddy on :80) until DOMAIN is configured
 - Health: GET /healthz -> {"status":"ok"}
 
 Env vars
-- OPENAI_API_KEY: optional server fallback key
-- X-OpenAI-Key: per-request header for user key (preferred)
-- ALLOWED_ORIGINS: comma-separated list of allowed origins (e.g., https://api.example.com,chrome-extension://<id>)
+- REQUIRE_USER_API_KEY: enforce per-request key header (default true)
+- OPENAI_API_KEY: optional server fallback key (avoid setting when REQUIRE_USER_API_KEY=true)
+- ALLOWED_ORIGINS: comma-separated list of allowed origins (e.g., http://$IP,chrome-extension://<id>)
 - DOMAIN: domain served by Caddy (required for HTTPS)
 - MAX_UPLOAD_MB: max upload size in MB (default 10)
 - GUNICORN_WORKERS: default 2
 - GUNICORN_THREADS: default 1
 - GUNICORN_TIMEOUT: default 60
 - GUNICORN_KEEPALIVE: default 5
+
+Request headers
+- X-OpenAI-Key: per-request user key (required when REQUIRE_USER_API_KEY=true)
+- X-LLM-Provider: optional; current supported value: "openai" (others return 400)
+- X-LLM-Model: optional; model name for the selected provider
+  - Examples: OpenAI "gpt-4o" (default), "gpt-4.1-mini"
+  - If omitted, defaults to a sensible model per provider (OpenAI defaults to gpt-4o)
 
 Key endpoints
 - POST /analyze-job-vacancy { vacancy_text }

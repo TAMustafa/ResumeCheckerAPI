@@ -29,6 +29,9 @@ except Exception:
     MAX_UPLOAD_MB = 10
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
+# Require per-user OpenAI API key by default (can be overridden via env)
+REQUIRE_USER_API_KEY = os.getenv("REQUIRE_USER_API_KEY", "true").lower() in {"1", "true", "yes"}
+
 # CORS configuration
 # Set ALLOWED_ORIGINS in env as a comma-separated list, e.g.:
 #   ALLOWED_ORIGINS=https://yourdomain.tld,chrome-extension://<ext-id>
@@ -52,6 +55,8 @@ app.add_middleware(
     allow_headers=[
         "*",
         "X-OpenAI-Key",
+        "X-LLM-Provider",
+        "X-LLM-Model",
     ],
     expose_headers=["*"],
 )
@@ -64,9 +69,19 @@ class VacancyRequest(BaseModel):
     vacancy_text: str
 
 @app.post("/analyze-job-vacancy")
-async def api_analyze_job_vacancy(req: VacancyRequest, x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key")):
+async def api_analyze_job_vacancy(
+    req: VacancyRequest,
+    x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key"),
+    x_llm_provider: str | None = Header(default=None, alias="X-LLM-Provider"),
+    x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
+):
     try:
-        result = await analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key)
+        if REQUIRE_USER_API_KEY and not x_openai_key:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
+        provider = (x_llm_provider or "openai").lower()
+        if provider != "openai":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
+        result = await analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key, provider=provider, model=x_llm_model)
         return result.model_dump()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -76,8 +91,15 @@ async def api_analyze_cv(
     request: Request,
     file: UploadFile = File(...),
     x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key"),
+    x_llm_provider: str | None = Header(default=None, alias="X-LLM-Provider"),
+    x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
 ):
     try:
+        if REQUIRE_USER_API_KEY and not x_openai_key:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
+        provider = (x_llm_provider or "openai").lower()
+        if provider != "openai":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
         # Enforce Content-Length if provided
         content_length = request.headers.get("content-length")
         if content_length is not None:
@@ -116,7 +138,7 @@ async def api_analyze_cv(
             )
         
         # Analyze the CV
-        result = await analyze_cv(file_path, api_key=x_openai_key)
+        result = await analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model)
         return result.model_dump()
         
     except HTTPException:
@@ -260,11 +282,21 @@ class ScoreRequest(BaseModel):
     job_requirements: dict
 
 @app.post("/score-cv-match")
-async def api_score_cv_match(req: ScoreRequest, x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key")):
+async def api_score_cv_match(
+    req: ScoreRequest,
+    x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key"),
+    x_llm_provider: str | None = Header(default=None, alias="X-LLM-Provider"),
+    x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
+):
     try:
+        if REQUIRE_USER_API_KEY and not x_openai_key:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
+        provider = (x_llm_provider or "openai").lower()
+        if provider != "openai":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
         cv_obj = CVAnalysis(**req.cv_analysis)
         job_obj = JobRequirements(**req.job_requirements)
-        result = await score_cv_match(cv_obj, job_obj, api_key=x_openai_key)
+        result = await score_cv_match(cv_obj, job_obj, api_key=x_openai_key, provider=provider, model=x_llm_model)
         return result.model_dump() if hasattr(result, 'model_dump') else result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
