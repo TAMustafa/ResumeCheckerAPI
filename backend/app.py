@@ -8,6 +8,8 @@ import shutil
 from typing import List
 from datetime import datetime
 import os
+import logfire
+from uuid import uuid4
 
 from models import JobRequirements, CVAnalysis, MatchingScore
 from agents import analyze_job_vacancy, analyze_cv, score_cv_match
@@ -61,6 +63,20 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+# Correlation ID middleware for observability; adds X-Request-ID
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    # attach to request state for downstream logs
+    request.state.request_id = request_id
+    try:
+        response = await call_next(request)
+    finally:
+        # ensure header on response even if exception handlers run
+        pass
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return "<h2>Resume Checker API is running.</h2>"
@@ -76,6 +92,11 @@ async def api_analyze_job_vacancy(
     x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
 ):
     try:
+        logfire.info("/analyze-job-vacancy request", extra={
+            "request_id": getattr(locals().get('req', None), 'request_id', None) or getattr(locals().get('request', None), 'state', None) and getattr(locals().get('request').state, 'request_id', None),
+            "provider": (x_llm_provider or "openai").lower() if x_llm_provider is not None else "openai",
+            "model": x_llm_model or "gpt-4o",
+        })
         if REQUIRE_USER_API_KEY and not x_openai_key:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
         provider = (x_llm_provider or "openai").lower()

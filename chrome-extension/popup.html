@@ -151,9 +151,66 @@
             <progress id="qualifications-progress" value="0" max="100"></progress>
           </div>
         </div>
+        <section id="category-explanations" class="mt-2">
+          <details>
+            <summary>Category Explanations</summary>
+            <div class="grid">
+              <div>
+                <strong>Technical Skills</strong>
+                <p id="tech-explanation" class="secondary"></p>
+              </div>
+              <div>
+                <strong>Experience</strong>
+                <p id="exp-explanation" class="secondary"></p>
+              </div>
+              <div>
+                <strong>Qualifications</strong>
+                <p id="qual-explanation" class="secondary"></p>
+              </div>
+            </div>
+          </details>
+        </section>
+        <!-- Strengths & Gaps (simple layout, no cards) -->
+        <section id="strengths-gaps" class="mt-2">
+          <h3>Top Strengths</h3>
+          <ul id="strengths-list" class="compact-list"></ul>
+          <h3 style="margin-top:1rem;">Key Gaps</h3>
+          <ul id="gaps-list" class="compact-list"></ul>
+        </section>
+
+        <!-- Matches & Misses (simple layout) -->
+        <section id="matched-missing" class="mt-2">
+          <h3>Matches & Misses</h3>
+          <div class="chips-group">
+            <div class="chips-row">
+              <strong>Matched Skills:</strong>
+              <div id="matched-skills" class="chips"></div>
+            </div>
+            <div class="chips-row">
+              <strong>Matched Qualifications:</strong>
+              <div id="matched-qualifications" class="chips"></div>
+            </div>
+            <div class="chips-row">
+              <strong>Matched Languages:</strong>
+              <div id="matched-languages" class="chips"></div>
+            </div>
+            <div class="chips-row">
+              <strong>Missing Requirements:</strong>
+              <div id="missing-requirements" class="chips"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Suggestions (simple layout) -->
+        <section id="suggestions" class="mt-2">
+          <h3>Suggestions for Improvement</h3>
+          <ul id="suggestions-list" class="compact-list"></ul>
+        </section>
       </article>
     </section>
   </main>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/popup.js"></script>
 </body>
 </html>

@@ -1,12 +1,4 @@
-function ensureKey() {
-  const key = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
-  if (!key || key.trim().length === 0) {
-    alert('Please set your LLM API key in the extension Options first.');
-    // open options page for convenience
-    if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
-    throw new Error('Missing LLM API key');
-  }
-}
+// Networking is handled in js/api.js via the global API namespace.
 
 // Tab logic
 const tabJobBtn = document.getElementById('tab-job');
@@ -45,55 +37,28 @@ const resultsSection = document.getElementById('results');
 const matchScore = document.getElementById('match-score');
 const overallExplanation = document.getElementById('overall-explanation');
 
+// Results lists/chips
+const strengthsList = document.getElementById('strengths-list');
+const gapsList = document.getElementById('gaps-list');
+const chipsMatchedSkills = document.getElementById('matched-skills');
+const chipsMatchedQualifications = document.getElementById('matched-qualifications');
+const chipsMatchedLanguages = document.getElementById('matched-languages');
+const chipsMissing = document.getElementById('missing-requirements');
+const suggestionsList = document.getElementById('suggestions-list');
+// Per-category explanations
+const techExplanation = document.getElementById('tech-explanation');
+const expExplanation = document.getElementById('exp-explanation');
+const qualExplanation = document.getElementById('qual-explanation');
+
 // New DOM elements for individual analysis
 const analyzeJobBtn = document.getElementById('analyze-job-btn');
 const analyzeCvBtn = document.getElementById('analyze-cv-btn');
 const jobAnalysisSummary = document.getElementById('job-analysis-summary');
 const cvAnalysisSummary = document.getElementById('cv-analysis-summary');
 
-// Fixed backend API URL (users don't change this)
-let API_BASE_URL = 'http://91.98.122.7';
-// Provider + per-provider keys
-let LLM_PROVIDER = 'openai';
-let OPENAI_KEY = null; // kept for backward compatibility in storage
-let LLM_KEYS = {}; // { openai, deepseek, anthropic }
-let LLM_MODELS = {}; // per-provider model mapping
-let LLM_MODEL = 'gpt-4o';
 let isAnalyzing = false;
-// Debug flag to control console noise
-const DEBUG = false;
-
-async function loadConfig() {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], (items) => {
-      // Force OpenAI as the only provider for now
-      LLM_PROVIDER = 'openai';
-      LLM_KEYS = items?.llmKeys || {};
-      LLM_MODELS = items?.llmModels || {};
-      // Back-compat: if no llmKeys.openai, use legacy openaiKey
-      if (items?.openaiKey && !LLM_KEYS.openai) {
-        LLM_KEYS.openai = items.openaiKey;
-      }
-      OPENAI_KEY = LLM_KEYS.openai || null;
-      const defaults = { openai: 'gpt-4o' };
-      LLM_MODEL = LLM_MODELS[LLM_PROVIDER] || defaults[LLM_PROVIDER] || 'gpt-4o';
-      resolve({ provider: LLM_PROVIDER, model: LLM_MODEL });
-    });
-  });
-}
-
-// Helper to include per-user key header
-async function apiFetch(path, options = {}) {
-  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
-  const headers = new Headers(options.headers || {});
-  // Provider header for backend (currently only 'openai' supported server-side)
-  headers.set('X-LLM-Provider', LLM_PROVIDER);
-  if (LLM_MODEL) headers.set('X-LLM-Model', LLM_MODEL);
-  // For OpenAI, keep legacy header the backend expects
-  const keyForProvider = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
-  if (keyForProvider) headers.set('X-OpenAI-Key', keyForProvider);
-  return fetch(url, { ...options, headers });
-}
+const DEBUG = false; // local debug flag
+async function loadConfig() { return API.loadConfig(); }
 
 // Progress elements
 const techSkillsProgress = document.getElementById('tech-skills-progress');
@@ -172,14 +137,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Fetch list of previously uploaded CVs from the backend
 async function fetchUploadedCVs() {
   try {
-    const response = await apiFetch(`/api/uploaded-cvs`);
-    if (!response.ok) throw new Error('Failed to fetch CVs');
-    
-    const cvs = await response.json();
+    const cvs = await API.fetchUploadedCVs();
     updateCvDropdown(cvs);
   } catch (error) {
     console.error('Error fetching CVs:', error);
-    // Silently fail - the dropdown will just be empty
   }
 }
 
@@ -272,9 +233,17 @@ function resetResults() {
   experienceText.textContent = '0%';
   qualificationsText.textContent = '0%';
   
-  // Clear summary section if present
-  const summaryDiv = document.getElementById('summary-div');
-  if (summaryDiv) summaryDiv.remove();
+  // Clear previous lists/chips
+  if (strengthsList) strengthsList.innerHTML = '';
+  if (gapsList) gapsList.innerHTML = '';
+  if (chipsMatchedSkills) chipsMatchedSkills.innerHTML = '';
+  if (chipsMatchedQualifications) chipsMatchedQualifications.innerHTML = '';
+  if (chipsMatchedLanguages) chipsMatchedLanguages.innerHTML = '';
+  if (chipsMissing) chipsMissing.innerHTML = '';
+  if (suggestionsList) suggestionsList.innerHTML = '';
+  if (techExplanation) techExplanation.textContent = '';
+  if (expExplanation) expExplanation.textContent = '';
+  if (qualExplanation) qualExplanation.textContent = '';
 }
 
 // clearAll() was unused and has been removed
@@ -295,13 +264,7 @@ if (deleteCvBtn) {
     if (!confirmed) return;
 
     try {
-      const resp = await apiFetch(`/api/uploaded-cvs/${encodeURIComponent(selected)}`, {
-        method: 'DELETE'
-      });
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Failed to delete: ${resp.status} ${text}`);
-      }
+      await API.deleteUploadedCv(selected);
 
       // Refresh list and UI state
       await fetchUploadedCVs();
@@ -364,125 +327,14 @@ async function analyzeDocuments() {
 
 // API: Analyze job description
 async function analyzeJobDescription(description) {
-  try {
-    ensureKey();
-    if (DEBUG) console.log('Sending job description to analyze:', description);
-    
-    const response = await apiFetch(`/analyze-job-vacancy`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        vacancy_text: description
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server responded with:', errorText);
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-    }
-    
-    const result = await response.json();
-    if (DEBUG) console.log('Job analysis result:', result);
-    return result;
-  } catch (error) {
-    console.error('Error analyzing job description:', error);
-    throw error;
-  }
+  return API.analyzeJobDescription(description, DEBUG);
 }
 
 // API: Analyze CV
-async function analyzeCV(file) {
-  const formData = new FormData();
-  
-  try {
-    ensureKey();
-    if (file.isFromDropdown) {
-      // If the file is from the dropdown, we need to fetch it first
-      if (DEBUG) console.log('Analyzing CV from dropdown:', file.name);
-      try {
-        // Ensure the filename is properly encoded for the URL
-        const encodedFilename = encodeURIComponent(file.name);
-        if (DEBUG) console.log('Fetching CV from:', `${API_BASE_URL}/uploaded_cvs/${encodedFilename}`);
-        
-        const response = await apiFetch(`/uploaded_cvs/${encodedFilename}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Server responded with:', response.status, errorText);
-          throw new Error(`Failed to fetch CV: ${response.status} - ${errorText}`);
-        }
-        
-        // Convert the response to a blob and create a File object
-        const blob = await response.blob();
-        if (blob.size === 0) {
-          throw new Error('Received empty file from server');
-        }
-        
-        const fetchedFile = new File([blob], file.name, { type: 'application/pdf' });
-        formData.append('file', fetchedFile, file.name);
-      } catch (error) {
-        console.error('Error fetching CV:', error);
-        throw new Error(`Error fetching CV: ${error.message}`);
-      }
-    } else {
-      // Regular file upload
-      if (DEBUG) console.log('Uploading CV file:', file.name);
-      formData.append('file', file, file.name);
-    }
-    
-    const response = await apiFetch(`/analyze-cv`, {
-      method: 'POST',
-      // Don't set Content-Type header - let the browser set it with the correct boundary
-      headers: {
-        'Accept': 'application/json'
-      },
-      body: formData
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('CV analysis failed. Status:', response.status, 'Response:', errorText);
-      throw new Error(`CV analysis failed: ${response.status} - ${errorText}`);
-    }
-    
-    const result = await response.json();
-    if (DEBUG) console.log('CV analysis result:', result);
-    return result;
-  } catch (error) {
-    console.error('Error analyzing CV:', error);
-    throw error;
-  }
-}
+async function analyzeCV(file) { return API.analyzeCV(file, DEBUG); }
 
 // API: Get matching score
-async function getMatchingScore(cvAnalysis, jobRequirements) {
-  try {
-    ensureKey();
-    const response = await apiFetch(`/score-cv-match`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        cv_analysis: cvAnalysis,
-        job_requirements: jobRequirements
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error getting matching score:', error);
-    throw error;
-  }
-}
+async function getMatchingScore(cvAnalysis, jobRequirements) { return API.getMatchingScore(cvAnalysis, jobRequirements); }
 
 // Update the UI with the analysis results
 function updateResultsUI(score, cvAnalysis) {
@@ -491,6 +343,9 @@ function updateResultsUI(score, cvAnalysis) {
   let overall = typeof score.overall_match_score === 'number' ? score.overall_match_score : 0;
   matchScore.textContent = `${overall}%`;
   overallExplanation.textContent = score.overall_explanation ?? 'No explanation available.';
+  // Update circular progress visualization
+  const circle = document.querySelector('.score-circle');
+  if (circle) circle.style.setProperty('--progress', `${overall}%`);
   
   // Update progress bars
   updateProgressBar(techSkillsProgress, score.technical_skills_score);
@@ -502,50 +357,33 @@ function updateResultsUI(score, cvAnalysis) {
   experienceText.textContent = `${score.experience_score ?? 0}%`;
   qualificationsText.textContent = `${score.qualifications_score ?? 0}%`;
 
-  // Show summary of matched/missing requirements if available
-  let summaryDiv = document.getElementById('summary-div');
-  if (!summaryDiv) {
-    summaryDiv = document.createElement('div');
-    summaryDiv.id = 'summary-div';
-    summaryDiv.className = 'mt-2';
-    resultsSection.appendChild(summaryDiv);
-  }
-  summaryDiv.innerHTML = '';
+  // No summary-div to avoid duplication; chips and lists below present details
 
-  function badge(label, color) {
-    return `<span style="display:inline-block;background:${color};color:#fff;border-radius:12px;padding:2px 8px;margin:2px 2px 2px 0;font-size:12px;">${label}</span>`;
-  }
+  // Populate enhanced sections using helpers (keeps Pico.css unaffected)
+  if (typeof UI !== 'undefined') {
+    // Strengths & gaps from CV analysis
+    const strengths = UI.safeArray(cvAnalysis?.candidate_suitability?.strengths);
+    const gaps = UI.safeArray(cvAnalysis?.candidate_suitability?.gaps);
+    UI.setList(strengthsList, strengths);
+    UI.setList(gapsList, gaps);
 
-  // Add matched skills
-  if (score.matched_skills?.length) {
-    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Skills:</strong><br>${score.matched_skills.map(s => badge(s, "#1a73e8")).join('')}</div>`;
-  }
-  
-  // Add matched qualifications
-  if (score.matched_qualifications?.length) {
-    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Qualifications:</strong><br>${score.matched_qualifications.map(q => badge(q, "#43a047")).join('')}</div>`;
-  }
-  
-  // Add missing requirements
-  if (score.missing_requirements?.length) {
-    summaryDiv.innerHTML += `<div class="mt-2"><strong>Missing Requirements:</strong><br>${score.missing_requirements.map(m => badge(m, "#d93025")).join('')}</div>`;
-  }
-  
-  // Add matched languages if any
-  if (score.matched_languages?.length) {
-    summaryDiv.innerHTML += `<div class="mt-2"><strong>Matched Languages:</strong><br>${score.matched_languages.map(l => badge(l, "#fbbc04")).join('')}</div>`;
-  }
-  
-  // Add any improvement suggestions
-  const gaps = score.gaps ?? [];
-  const suggestions = score.improvement_suggestions ?? [];
-  const allSuggestions = [...gaps, ...suggestions];
-  
-  if (allSuggestions.length > 0) {
-    const suggestionsHtml = allSuggestions.map(suggestion => 
-      `<div class="suggestion">• ${suggestion}</div>`
-    ).join('');
-    summaryDiv.innerHTML += `<div class="mt-2"><strong>Suggestions for Improvement:</strong>${suggestionsHtml}</div>`;
+    // Chips for matches and missing
+    UI.setChips(chipsMatchedSkills, UI.safeArray(score.matched_skills), 'blue');
+    UI.setChips(chipsMatchedQualifications, UI.safeArray(score.matched_qualifications), 'green');
+    UI.setChips(chipsMatchedLanguages, UI.safeArray(score.matched_languages), 'amber');
+    UI.setChips(chipsMissing, UI.safeArray(score.missing_requirements), 'red');
+
+    // Suggestions list: only use improvement_suggestions to avoid duplicating "gaps" already shown above
+    const uniqueSuggestions = Array.from(new Set(
+      Array.isArray(score.improvement_suggestions) ? score.improvement_suggestions : []
+    ));
+    UI.setList(suggestionsList, uniqueSuggestions);
+
+    // Per-category explanations if provided by backend
+    // Try multiple common keys for robustness
+    if (techExplanation) techExplanation.textContent = score.technical_skills_explanation || score.technical_explanation || '';
+    if (expExplanation) expExplanation.textContent = score.experience_explanation || '';
+    if (qualExplanation) qualExplanation.textContent = score.qualifications_explanation || score.education_explanation || '';
   }
 }
 

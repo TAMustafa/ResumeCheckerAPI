@@ -399,6 +399,58 @@ ul li {
   border-bottom: 2px solid var(--primary);
   font-weight: bold;
 }
+
+/* Section grid for side-by-side cards */
+.section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .section-grid { grid-template-columns: 1fr; }
+}
+
+/* Card component */
+.card {
+  border: 1px solid var(--card-border-color);
+  border-radius: var(--border-radius);
+  background: var(--card-background-color);
+  padding: 0.75rem;
+}
+
+.section-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+}
+
+.card-body {
+  font-size: 0.95em;
+  color: #444;
+}
+
+/* Chips */
+.chips-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.chips-row { display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem; align-items: start; }
+@media (max-width: 768px) { .chips-row { grid-template-columns: 1fr; } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+}
+.chip.blue { background: var(--primary); }
+.chip.green { background: #43a047; }
+.chip.amber { background: #fbbc04; color: #222; }
+.chip.red { background: #d93025; }
+
+/* Compact lists */
+.compact-list { margin: 0; padding-left: 1.1rem; }
+.compact-list li { margin: 0.25rem 0; }
 .tab-section {
   display: none;
 }
