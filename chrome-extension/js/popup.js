@@ -116,6 +116,8 @@ analyzeCvBtn.addEventListener('click', async () => {
   cvAnalysisSummary.textContent = 'Analyzing...';
   try {
     const result = await analyzeCV(cvFile);
+    // Cache CV analysis so Result tab can be enabled
+    lastCvAnalysis = result;
     cvAnalysisSummary.innerHTML = renderCvAnalysisSummary(result);
     validateForm();
   } catch (e) {

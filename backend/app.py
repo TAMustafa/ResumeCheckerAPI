@@ -34,33 +34,33 @@ MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 # Require per-user OpenAI API key by default (can be overridden via env)
 REQUIRE_USER_API_KEY = os.getenv("REQUIRE_USER_API_KEY", "true").lower() in {"1", "true", "yes"}
 
+# Data retention: control whether uploaded CVs are retained on disk after analysis.
+# Defaults to False (do not retain) for privacy. When False, the server deletes
+# the uploaded file immediately after analysis, and listing/downloading is disabled.
+RETAIN_UPLOADED_CVS = os.getenv("RETAIN_UPLOADED_CVS", "false").lower() in {"1", "true", "yes"}
+
 # CORS configuration
-# Set ALLOWED_ORIGINS in env as a comma-separated list, e.g.:
-#   ALLOWED_ORIGINS=https://yourdomain.tld,chrome-extension://<ext-id>
+# Prefer explicit ALLOWED_ORIGINS; otherwise build safe defaults.
+# To allow your extension explicitly, set CHROME_EXTENSION_ID to include
+# chrome-extension://<ID> instead of using any wildcard.
 _allowed_env = os.getenv("ALLOWED_ORIGINS", "").strip()
-if not _allowed_env:
-    # Fallback defaults when env is unset or blank
-    defaults = [
-        "http://91.98.122.7",  # Hetzner public IP (HTTP via Caddy)
-        "http://localhost:8000",
-        "chrome-extension://*",
-    ]
-    ALLOWED_ORIGINS = defaults
-else:
+if _allowed_env:
     ALLOWED_ORIGINS = [o.strip() for o in _allowed_env.split(",") if o.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        "http://91.98.122.7",  # Server origin (HTTP for now)
+        "http://localhost:8000",  # Dev local
+    ]
+    _ext_id = os.getenv("CHROME_EXTENSION_ID", "").strip()
+    if _ext_id:
+        ALLOWED_ORIGINS.append(f"chrome-extension://{_ext_id}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=[
-        "*",
-        "X-OpenAI-Key",
-        "X-LLM-Provider",
-        "X-LLM-Model",
-    ],
-    expose_headers=["*"],
+    allow_headers=["*"]
 )
 
 # Correlation ID middleware for observability; adds X-Request-ID
@@ -160,6 +160,15 @@ async def api_analyze_cv(
         
         # Analyze the CV
         result = await analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model)
+
+        # Delete immediately unless retention is enabled
+        if not RETAIN_UPLOADED_CVS:
+            try:
+                file_path.unlink(missing_ok=True)
+            except Exception:
+                # Best-effort deletion; do not fail the request
+                pass
+
         return result.model_dump()
         
     except HTTPException:
@@ -186,6 +195,8 @@ async def list_uploaded_cvs():
     Returns a list of CV files with their metadata.
     """
     try:
+        if not RETAIN_UPLOADED_CVS:
+            return []
         cv_files = []
         for file_path in UPLOAD_DIR.glob("*.pdf"):  # Only list PDF files
             if file_path.is_file():
@@ -213,6 +224,11 @@ async def get_uploaded_cv(filename: str):
     Serve an uploaded CV file.
     """
     try:
+        if not RETAIN_UPLOADED_CVS:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found"
+            )
         # Security: Only allow PDF files
         if not filename.lower().endswith('.pdf'):
             raise HTTPException(
@@ -257,6 +273,12 @@ async def delete_uploaded_cv(filename: str):
     configured upload directory. Returns 204 on success.
     """
     try:
+        if not RETAIN_UPLOADED_CVS:
+            # Nothing to delete / feature disabled
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found"
+            )
         # Only allow PDF files
         if not filename.lower().endswith('.pdf'):
             raise HTTPException(

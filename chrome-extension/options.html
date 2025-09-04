@@ -15,6 +15,11 @@
   </head>
   <body>
     <h2>Resume Checker Settings</h2>
+    <p style="margin:8px 0 16px;color:#374151;font-size:13px">
+      Note: Your job description and CV will be sent to our server and the selected LLM provider for analysis. 
+      By using this extension you agree to this processing.
+      See our <a id="privacyLink" href="#" target="_blank">Privacy Policy</a> and <a id="termsLink" href="#" target="_blank">Terms</a>.
+    </p>
     <div class="row">
       <label for="provider">LLM Provider</label>
       <select id="provider">
@@ -30,9 +35,14 @@
       <label for="apiKey">API Key</label>
       <input id="apiKey" type="password" placeholder="Enter your provider API key" />
     </div>
+    <div class="row" style="display:flex;align-items:center;gap:8px">
+      <input id="syncOptIn" type="checkbox" />
+      <label for="syncOptIn" style="margin:0;font-weight:500">Sync my API key across devices (not recommended). Default is local-only storage.</label>
+    </div>
     <button id="saveBtn" class="btn">Save</button>
     <button id="testBtn" class="btn secondary">Test Connection</button>
     <button id="removeBtn" class="btn secondary" style="background:#ef4444">Remove Key</button>
+    <button id="purgeBtn" class="btn secondary" style="background:#b91c1c">Purge Stored Data</button>
     <div id="status" class="status"></div>
 
     <script src="js/options.js"></script>

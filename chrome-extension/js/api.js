@@ -1,6 +1,8 @@
 // Global API helper for backend communication
 // Keeps headers and endpoints consistent; Pico.css unaffected
+
 (function initAPI(global) {
+  // Default base URL (IP for now). Will switch to HTTPS domain later.
   let API_BASE_URL = 'http://91.98.122.7';
   let LLM_PROVIDER = 'openai';
   let LLM_KEYS = {}; // { openai, deepseek, anthropic }
@@ -8,19 +10,32 @@
   let LLM_MODEL = 'gpt-4o';
 
   async function loadConfig() {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], (items) => {
-        // Force OpenAI as the only provider for now
-        LLM_PROVIDER = 'openai';
-        LLM_KEYS = items?.llmKeys || {};
-        LLM_MODELS = items?.llmModels || {};
-        if (items?.openaiKey && !LLM_KEYS.openai) {
-          LLM_KEYS.openai = items.openaiKey;
-        }
-        LLM_MODEL = LLM_MODELS[LLM_PROVIDER] || 'gpt-4o';
-        resolve({ provider: LLM_PROVIDER, model: LLM_MODEL });
-      });
+    // Prefer local storage for sensitive keys; optionally merge from sync if user opted in
+    const local = await new Promise((resolve) => {
+      chrome.storage.local.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey', 'apiBaseUrl', 'syncKeysOptIn'], resolve);
     });
+    const syncOptIn = !!local?.syncKeysOptIn;
+    let sync = {};
+    if (syncOptIn) {
+      sync = await new Promise((resolve) => {
+        chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], resolve);
+      });
+    }
+
+    // Base URL: allow override via storage, else default to IP
+    API_BASE_URL = local?.apiBaseUrl || API_BASE_URL;
+
+    // Force OpenAI as provider for now
+    LLM_PROVIDER = 'openai';
+    // Merge precedence: local first, then sync fallback
+    LLM_KEYS = (local?.llmKeys) || (sync?.llmKeys) || {};
+    if (!LLM_KEYS.openai && (local?.openaiKey || sync?.openaiKey)) {
+      LLM_KEYS.openai = local?.openaiKey || sync?.openaiKey || '';
+    }
+    LLM_MODELS = (local?.llmModels) || (sync?.llmModels) || {};
+    LLM_MODEL = LLM_MODELS[LLM_PROVIDER] || 'gpt-4o';
+
+    return { provider: LLM_PROVIDER, model: LLM_MODEL, baseUrl: API_BASE_URL };
   }
 
   function ensureKey() {
@@ -124,5 +139,6 @@
     getMatchingScore,
     fetchUploadedCVs,
     deleteUploadedCv,
+    getBaseUrl: () => API_BASE_URL,
   };
 })(window);
