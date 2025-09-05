@@ -91,11 +91,11 @@ test.describe('Popup UI (mocked backend, mocked chrome APIs)', () => {
     fs.writeFileSync(tmpPdfPath, '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF');
     await page.setInputFiles('#cv-upload', tmpPdfPath);
 
-    // Click Analyze Job first, then switch to CV tab and Analyze CV
+    // Click Analyze Job first, then switch to CV tab; CV analysis happens automatically after upload
     await page.click('#analyze-job-btn');
     await page.click('#tab-cv');
-    await expect(page.locator('#analyze-cv-btn')).toBeVisible();
-    await page.click('#analyze-cv-btn');
+    // Wait for auto CV analysis to reflect in summary
+    await expect(page.locator('#cv-analysis-summary')).toContainText('CV Analysis');
 
     // Open Result tab to trigger combined scoring and rendering
     await page.click('#tab-result');

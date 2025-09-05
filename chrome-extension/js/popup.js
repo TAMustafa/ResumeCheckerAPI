@@ -50,7 +50,6 @@ const qualExplanation = document.getElementById('qual-explanation');
 
 // New DOM elements for individual analysis
 const analyzeJobBtn = document.getElementById('analyze-job-btn');
-const analyzeCvBtn = document.getElementById('analyze-cv-btn');
 const jobAnalysisSummary = document.getElementById('job-analysis-summary');
 const cvAnalysisSummary = document.getElementById('cv-analysis-summary');
 
@@ -102,26 +101,7 @@ analyzeJobBtn.addEventListener('click', async () => {
   analyzeJobBtn.disabled = false;
 });
 
-// Analyze CV (individual)
-analyzeCvBtn.addEventListener('click', async () => {
-  cvAnalysisSummary.innerHTML = '';
-  if (!cvFile) {
-    cvAnalysisSummary.textContent = 'Please upload or select a CV.';
-    return;
-  }
-  analyzeCvBtn.disabled = true;
-  cvAnalysisSummary.textContent = 'Analyzing...';
-  try {
-    const result = await analyzeCV(cvFile);
-    // Cache CV analysis so Result tab can be enabled
-    lastCvAnalysis = result;
-    cvAnalysisSummary.innerHTML = renderCvAnalysisSummary(result);
-    validateForm();
-  } catch (e) {
-    cvAnalysisSummary.textContent = 'Error analyzing CV.';
-  }
-  analyzeCvBtn.disabled = false;
-});
+// Analyze CV now happens automatically on file selection (see handleFileUpload)
 
 // No Clear or Analyze buttons in Result tab anymore
 
@@ -163,6 +143,8 @@ function handleFileUpload(event) {
       : file.name;
     fileName.textContent = displayName;
     fileName.title = file.name; // Show full name on hover
+    // Auto-trigger CV analysis
+    autoAnalyzeCv();
   } else {
     cvFile = null;
     fileName.textContent = 'No file chosen';
@@ -170,6 +152,20 @@ function handleFileUpload(event) {
   }
   validateForm();
   resetResults();
+}
+
+async function autoAnalyzeCv() {
+  if (!cvFile) return;
+  cvAnalysisSummary.innerHTML = '';
+  cvAnalysisSummary.textContent = 'Analyzing...';
+  try {
+    const result = await analyzeCV(cvFile);
+    lastCvAnalysis = result;
+    cvAnalysisSummary.innerHTML = renderCvAnalysisSummary(result);
+    validateForm();
+  } catch (e) {
+    cvAnalysisSummary.textContent = 'Error analyzing CV.';
+  }
 }
 
 // Enable/disable analyze button based on form validity
