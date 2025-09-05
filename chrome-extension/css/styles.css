@@ -28,7 +28,7 @@
 .button,
 button {
   width: 100%;
-  margin: 0.5rem 0;
+  margin: 0.125rem 0 !important; /* even tighter spacing, force override */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,13 +40,16 @@ button {
 .icon-btn {
   width: auto;
   min-width: 0;
-  padding: 0.5rem;
+  padding: 0.375rem; /* slightly tighter */
   margin: 0; /* managed by grid gap */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: 1; /* avoid clipping rounded corners */
 }
 .icon-btn svg { pointer-events: none; }
+/* Ensure the SVG fits without clipping inside compact icon buttons */
+.icon-btn svg { width: 18px; height: 18px; display: block; }
 
 /* 4. Responsive grid: use Pico's grid classes and spacing */
 .grid {
@@ -128,7 +131,8 @@ ul li[style*="color: #888"] {
   --border-radius: 0.25rem;
   --primary: #1a73e8;
   --primary-hover: #1765cc;
-  --form-element-spacing-vertical: 0.5rem;
+  /* Tighten Pico defaults for vertical spacing on buttons/inputs */
+  --form-element-spacing-vertical: 0.25rem;
   --form-element-spacing-horizontal: 0.75rem;
   --popup-width: 380px;
   --popup-max-height: 600px;
@@ -167,11 +171,12 @@ header {
   margin: 0 0 1rem 0;
   border-bottom: 1px solid var(--card-border-color);
   position: sticky;
-  top: calc(-1 * var(--popup-padding));
+  top: 0; /* avoid clipping the settings icon */
   background-color: var(--card-background-color);
   z-index: 10;
   padding-top: 0.5rem;
-  margin-top: -0.5rem;
+  margin-top: 0; /* remove negative margin to prevent cut corners */
+  overflow: visible; /* ensure children (icon) are not clipped */
 }
 
 header h1 {
@@ -195,6 +200,7 @@ header p {
   border-radius: var(--border-radius);
   background: var(--card-background-color);
   color: #374151;
+  overflow: visible; /* prevent SVG from being clipped */
 }
 .header-actions .icon-btn:focus-visible {
   outline: 2px solid var(--primary);
@@ -333,7 +339,7 @@ ul li {
   cursor: pointer;
   transition: background-color 0.2s ease;
   width: 100%;
-  margin: 0.5rem 0;
+  margin: 0.125rem 0; /* tighter spacing */
 }
 
 #upload-btn:hover {

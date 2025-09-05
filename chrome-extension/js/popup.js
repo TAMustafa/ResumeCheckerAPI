@@ -73,6 +73,9 @@ let cvAnalysis = null;
 // Store last cvAnalysis for strengths/gaps fallback
 let lastCvAnalysis = null;
 
+// Session cache configuration (20 MB cap)
+const MAX_CV_SIZE_BYTES = 20 * 1024 * 1024;
+
 // Event Listeners
 uploadBtn.addEventListener('click', () => cvUpload.click());
 cvUpload.addEventListener('change', handleFileUpload);
@@ -111,6 +114,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   validateForm();
   // Removed fetching of server-stored CVs (no retention)
 
+  // Try to restore CV from session storage for this browser session
+  await restoreCvFromSession();
+
   // Settings button -> open options page
   const settingsBtn = document.getElementById('open-settings');
   if (settingsBtn) {
@@ -145,6 +151,8 @@ function handleFileUpload(event) {
     fileName.title = file.name; // Show full name on hover
     // Auto-trigger CV analysis
     autoAnalyzeCv();
+    // Save to session storage (best-effort)
+    saveCvToSession(file).catch(() => {/* ignore session save errors */});
   } else {
     cvFile = null;
     fileName.textContent = 'No file chosen';
@@ -165,6 +173,53 @@ async function autoAnalyzeCv() {
     validateForm();
   } catch (e) {
     cvAnalysisSummary.textContent = 'Error analyzing CV.';
+  }
+}
+
+// Persist the uploaded CV for this browser session only
+async function saveCvToSession(file) {
+  try {
+    if (!file) return;
+    if (typeof chrome === 'undefined' || !chrome.storage?.session) return; // not available (e.g., tests)
+    if (file.size > MAX_CV_SIZE_BYTES) {
+      console.warn('CV is too large for session cache, skipping save');
+      return;
+    }
+    const buffer = await file.arrayBuffer();
+    const payload = { name: file.name, type: file.type, size: file.size, buffer };
+    await new Promise((resolve) => chrome.storage.session.set({ cvSession: payload }, resolve));
+  } catch (err) {
+    console.warn('Failed to save CV to session storage:', err);
+  }
+}
+
+// Restore CV from session cache if present
+async function restoreCvFromSession() {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage?.session) return false;
+    const data = await new Promise((resolve) => chrome.storage.session.get(['cvSession'], resolve));
+    const entry = data?.cvSession;
+    if (!entry || !entry.buffer || !entry.name || !entry.type) return false;
+
+    // Reconstruct a File from the stored ArrayBuffer
+    const blob = new Blob([entry.buffer], { type: entry.type });
+    const restored = new File([blob], entry.name, { type: entry.type });
+    cvFile = restored;
+    lastCvAnalysis = null; // ensure fresh analysis
+
+    const maxLength = 30;
+    const displayName = restored.name.length > maxLength
+      ? restored.name.substring(0, maxLength - 3) + '...'
+      : restored.name;
+    fileName.textContent = displayName;
+    fileName.title = restored.name;
+
+    // Automatically analyze the restored CV
+    await autoAnalyzeCv();
+    return true;
+  } catch (err) {
+    console.warn('Failed to restore CV from session storage:', err);
+    return false;
   }
 }
 
