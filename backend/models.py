@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 class SkillSet(BaseModel):
     technical: List[str] = Field(default_factory=list, description="Technical skills")
@@ -61,11 +61,7 @@ class MatchingScore(BaseModel):
     qualifications_explanation: str
     key_responsibilities_score: int = Field(..., ge=0, le=100)
     key_responsibilities_explanation: str
-    missing_requirements: List[str] = Field(default_factory=list)
     improvement_suggestions: List[str] = Field(default_factory=list)
-    matched_skills: List[str] = Field(default_factory=list)
-    matched_qualifications: List[str] = Field(default_factory=list)
-    matched_languages: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list, description="Key strengths identified in the CV")
     gaps: List[str] = Field(default_factory=list, description="Key areas for improvement or missing requirements")
     model_config = {'strict': True}

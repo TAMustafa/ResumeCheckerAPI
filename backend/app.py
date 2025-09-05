@@ -10,9 +10,11 @@ from datetime import datetime
 import os
 import logfire
 from uuid import uuid4
+import inspect
 
 from models import JobRequirements, CVAnalysis, MatchingScore
-from agents import analyze_job_vacancy, analyze_cv, score_cv_match
+import agents
+from scoring_engine import enhanced_scoring
 
 load_dotenv()
 
@@ -102,7 +104,9 @@ async def api_analyze_job_vacancy(
         provider = (x_llm_provider or "openai").lower()
         if provider != "openai":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
-        result = await analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        # Support both async and sync agent implementations (tests monkeypatch a sync fn)
+        res = agents.analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        result = await res if inspect.isawaitable(res) else res
         return result.model_dump()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -158,8 +162,9 @@ async def api_analyze_cv(
                 detail="Upload failed: file missing after write"
             )
         
-        # Analyze the CV
-        result = await analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        # Analyze the CV (support sync/async monkeypatches)
+        res = agents.analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        result = await res if inspect.isawaitable(res) else res
 
         # Delete immediately unless retention is enabled
         if not RETAIN_UPLOADED_CVS:
@@ -195,17 +200,124 @@ async def api_score_cv_match(
     x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
 ):
     try:
-        if REQUIRE_USER_API_KEY and not x_openai_key:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
-        provider = (x_llm_provider or "openai").lower()
-        if provider != "openai":
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
-        cv_obj = CVAnalysis(**req.cv_analysis)
-        job_obj = JobRequirements(**req.job_requirements)
-        result = await score_cv_match(cv_obj, job_obj, api_key=x_openai_key, provider=provider, model=x_llm_model)
-        return result.model_dump() if hasattr(result, 'model_dump') else result
+        # Note: Scoring is deterministic and does not call the LLM anymore.
+        # We therefore do not require an API key for this endpoint.
+        def _sanitize_job(req_dict: dict) -> dict:
+            # Only keep known keys; default nested structures where missing
+            jr = req_dict or {}
+            # Start with direct mappings
+            req_skills = jr.get("required_skills") or {}
+            tech = list(req_skills.get("technical", []) or [])
+            soft = list(req_skills.get("soft", []) or [])
+
+            # Heuristic mappings from alternative keys commonly returned by LLMs
+            # e.g., flat 'skills' list or separate 'technical_skills'/'soft_skills'
+            if not tech:
+                tech = list(jr.get("technical_skills", []) or [])
+            if not soft:
+                soft = list(jr.get("soft_skills", []) or [])
+            # If only a flat list of skills is provided, assume technical by default
+            if not tech and not soft and isinstance(jr.get("skills"), list):
+                tech = list(jr.get("skills") or [])
+
+            # Responsibilities may be provided under different keys
+            responsibilities = list(jr.get("responsibilities", []) or [])
+            if not responsibilities and isinstance(jr.get("tasks"), list):
+                responsibilities = list(jr.get("tasks") or [])
+            # Some LLMs put bullet points under 'requirements' mixing skills and duties
+            if not responsibilities and isinstance(jr.get("requirements"), list):
+                responsibilities = list(jr.get("requirements") or [])
+
+            qualifications = list(jr.get("qualifications", []) or [])
+            # Map certifications/education into qualifications if qualifications is empty
+            if not qualifications:
+                qualifications = list(jr.get("certifications", []) or [])
+            education = jr.get("education")
+            if not qualifications and isinstance(education, list):
+                qualifications = list(education)
+
+            languages = list(jr.get("languages", []) or [])
+            if not languages:
+                # Sometimes under 'language_requirements'
+                alt_lang = jr.get("language_requirements")
+                if isinstance(alt_lang, list):
+                    languages = list(alt_lang)
+
+            out = {
+                "required_skills": {
+                    "technical": tech,
+                    "soft": soft,
+                },
+                "experience": {
+                    "minimum_years": (jr.get("experience") or {}).get("minimum_years"),
+                    "industry": (jr.get("experience") or {}).get("industry"),
+                    "type": (jr.get("experience") or {}).get("type"),
+                    "leadership": (jr.get("experience") or {}).get("leadership"),
+                },
+                "qualifications": qualifications,
+                "responsibilities": responsibilities,
+                "languages": languages,
+                "seniority_level": jr.get("seniority_level"),
+            }
+            return out
+
+        def _sanitize_cv(cv_dict: dict) -> dict:
+            cv = cv_dict or {}
+            # recommendations may be object or array
+            rec = cv.get("recommendations")
+            if isinstance(rec, list):
+                recommendations = {
+                    "tailoring": list(rec),
+                    "interview_focus": [],
+                    "career_development": [],
+                }
+            elif isinstance(rec, dict):
+                recommendations = {
+                    "tailoring": list(rec.get("tailoring", []) or []),
+                    "interview_focus": list(rec.get("interview_focus", []) or []),
+                    "career_development": list(rec.get("career_development", []) or []),
+                }
+            else:
+                recommendations = {"tailoring": [], "interview_focus": [], "career_development": []}
+
+            key_info_in = cv.get("key_information") or {}
+            candidate_in = cv.get("candidate_suitability") or {}
+            # Heuristic enrichments for key_information if provided at top-level
+            if not key_info_in:
+                # Accept top-level fallbacks to avoid empty comparisons
+                key_info_in = {
+                    "experience_summary": cv.get("experience_summary") or "",
+                    "technical_skills": list(cv.get("technical_skills", []) or []),
+                    "soft_skills": list(cv.get("soft_skills", []) or []),
+                    "certifications": list(cv.get("certifications", []) or []),
+                    "languages": list(cv.get("languages", []) or []),
+                    "responsibilities": list(cv.get("responsibilities", []) or []),
+                }
+            out = {
+                "candidate_suitability": {
+                    "overall_fit_score": candidate_in.get("overall_fit_score") or 5,
+                    "justification": candidate_in.get("justification") or "",
+                    "strengths": list(candidate_in.get("strengths", []) or []),
+                    "gaps": list(candidate_in.get("gaps", []) or []),
+                },
+                "key_information": {
+                    "experience_summary": key_info_in.get("experience_summary") or "",
+                    "technical_skills": list(key_info_in.get("technical_skills", []) or []),
+                    "soft_skills": list(key_info_in.get("soft_skills", []) or []),
+                    "certifications": list(key_info_in.get("certifications", []) or []),
+                    "languages": list(key_info_in.get("languages", []) or []),
+                    "responsibilities": list(key_info_in.get("responsibilities", []) or []),
+                },
+                "recommendations": recommendations,
+            }
+            return out
+
+        cv_obj = CVAnalysis(**_sanitize_cv(req.cv_analysis))
+        job_obj = JobRequirements(**_sanitize_job(req.job_requirements))
+        result: MatchingScore = enhanced_scoring.calculate_weighted_score(cv_obj, job_obj)
+        return result.model_dump()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"scoring_error: {e}")
 
 
 @app.get("/healthz")

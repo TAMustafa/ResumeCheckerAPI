@@ -4,12 +4,18 @@ FROM python:3.12-slim as base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    VENV_PATH=/opt/venv
+    VENV_PATH=/opt/venv \
+    DEBIAN_FRONTEND=noninteractive \
+    LOGFIRE_API_KEY= \
+    LOGFIRE_PROJECT= \
+    LOGFIRE_DISABLED=1 \
+    ALLOWED_ORIGINS= \
+    DOMAIN=
 
 WORKDIR /app
 
-# Minimal system deps (add curl for healthchecks)
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+# Minimal system deps (add curl for healthchecks). Use noninteractive debconf to avoid TTY warnings.
+RUN apt-get update && apt-get install -yq --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and prepare ownership for venv directory and /app

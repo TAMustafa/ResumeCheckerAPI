@@ -2,12 +2,12 @@
 Enhanced scoring engine with weighted scoring based on job requirement priorities.
 Implements 2024 best practices for AI resume screening systems.
 """
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
 from models import JobRequirements, CVAnalysis, MatchingScore
-from skill_matcher import enhanced_taxonomy, SkillMatch
+from skill_matcher import enhanced_taxonomy
 
 class Priority(Enum):
     """Job requirement priority levels."""
@@ -287,21 +287,24 @@ class EnhancedScoringEngine:
         industry = self.infer_industry(job_requirements)
         profile = WEIGHTING_PROFILES.get(industry, WEIGHTING_PROFILES["default"])
         
+        # Provide safe default confidences if the field is absent on JobRequirements
+        job_confidences = getattr(job_requirements, 'confidences', {}) or {}
+
         # Calculate component scores
         tech_score, tech_exp, matched_tech = self.calculate_technical_skills_score(
             cv_analysis.key_information.technical_skills,
             job_requirements.required_skills.technical,
-            job_requirements.confidences
+            job_confidences
         )
         
         soft_score, soft_exp = self.calculate_soft_skills_score(
             cv_analysis.key_information.soft_skills,
             job_requirements.required_skills.soft,
-            job_requirements.confidences
+            job_confidences
         )
         
         exp_score, exp_exp = self.calculate_experience_score(
-            cv_analysis, job_requirements, job_requirements.confidences
+            cv_analysis, job_requirements, job_confidences
         )
         
         # Simple scoring for qualifications and responsibilities
@@ -322,35 +325,96 @@ class EnhancedScoringEngine:
         
         # Build explanation
         overall_exp = f"Weighted score using {industry} profile. Tech: {tech_score} ({profile.technical_skills_weight:.0%}), Experience: {exp_score} ({profile.experience_weight:.0%})"
-        
-        # Determine strengths and gaps
-        strengths = []
-        gaps = []
-        
-        if tech_score >= 80:
-            strengths.append(f"Strong technical skills match ({len(matched_tech)} key skills)")
-        elif tech_score < 60:
+
+        # Compute matched entities for strengths first
+        # Soft skills
+        cv_soft_norm = {s.lower().strip() for s in cv_analysis.key_information.soft_skills}
+        job_soft_norm = {s.lower().strip() for s in job_requirements.required_skills.soft}
+        matched_soft = sorted({s for s in cv_soft_norm.intersection(job_soft_norm) if s})
+        matched_soft_display = [s.title() for s in matched_soft]
+
+        # Qualifications (with alias normalization)
+        def _norm_cert(s: str) -> str:
+            if not s:
+                return ""
+            x = s.lower().strip()
+            aliases = {
+                "aws ccp": "aws cloud practitioner",
+                "aws cloud practitioner": "aws cloud practitioner",
+                "aws certified cloud practitioner": "aws cloud practitioner",
+                "pmp": "project management professional",
+                "project management professional": "project management professional",
+                "prince2": "prince2 practitioner",
+                "prince2 practitioner": "prince2 practitioner",
+                "scrum master": "scrum master",
+                "psm": "scrum master",
+                "psm i": "scrum master",
+                "az-900": "microsoft azure fundamentals",
+                "azure fundamentals": "microsoft azure fundamentals",
+                "microsoft azure fundamentals": "microsoft azure fundamentals",
+            }
+            return aliases.get(x, x)
+
+        cv_quals_norm = { _norm_cert(q) for q in cv_analysis.key_information.certifications }
+        job_quals_norm = { _norm_cert(q) for q in job_requirements.qualifications }
+        matched_qualifications = sorted({q for q in cv_quals_norm.intersection(job_quals_norm) if q})
+        matched_qualifications_display = [q.title() for q in matched_qualifications]
+
+        # Languages
+        matched_languages_list = sorted(
+            {l.strip().lower() for l in cv_analysis.key_information.languages}
+            .intersection({l.strip().lower() for l in job_requirements.languages})
+        )
+
+        # Responsibilities
+        cv_resps_norm = {r.strip().lower() for r in cv_analysis.key_information.responsibilities}
+        job_resps_norm = {r.strip().lower() for r in job_requirements.responsibilities}
+        matched_responsibilities = sorted({r for r in cv_resps_norm.intersection(job_resps_norm) if r})
+
+        # Determine gaps
+        gaps: list[str] = []
+        if tech_score < 60:
             gaps.append("Technical skills gap")
-            
-        if exp_score >= 80:
-            strengths.append("Excellent experience level")
-        elif exp_score < 60:
+        if exp_score < 60:
             gaps.append("Experience below requirements")
-            
-        if soft_score >= 80:
-            strengths.append("Good soft skills alignment")
-        elif soft_score < 60:
+        if soft_score < 60:
             gaps.append("Soft skills development needed")
+        # Preserve order and uniqueness
+        strengths_items: list[str] = []
+        def _extend_unique(seq):
+            for x in seq:
+                if x and x not in strengths_items:
+                    strengths_items.append(x)
+        _extend_unique(matched_tech)
+        _extend_unique(matched_soft_display)
+        _extend_unique(matched_qualifications_display)
+        _extend_unique(matched_languages_list)
+        _extend_unique(matched_responsibilities)
+        strengths = strengths_items[:10]
         
-        # Missing requirements
-        missing = []
-        if tech_score < 70:
-            missing_skills = set(job_requirements.required_skills.technical) - set(matched_tech)
-            missing.extend(list(missing_skills)[:3])  # Top 3 missing
-        
+        # Missing requirements are no longer returned; keep per-category deltas only for suggestions
+
+        # Missing by category
+        missing_tech_skills = sorted(set(job_requirements.required_skills.technical) - set(matched_tech))
+        missing_soft_skills = sorted({s for s in job_requirements.required_skills.soft if s.lower().strip() not in job_soft_norm})
+        missing_qualifications = sorted(list(job_quals_norm - cv_quals_norm))
+        missing_languages = sorted(
+            {l.strip().lower() for l in job_requirements.languages} - {l.strip().lower() for l in cv_analysis.key_information.languages}
+        )
+        missing_responsibilities = sorted(list(job_resps_norm - cv_resps_norm))
+
+        # Compose concise improvement suggestions based on key misses
+        top_missing: list[str] = []
+        top_missing.extend(missing_tech_skills[:3])
+        top_missing.extend([s.title() for s in missing_soft_skills[:2]])
         if exp_score < 70 and job_requirements.experience.minimum_years:
-            missing.append(f"{job_requirements.experience.minimum_years}+ years experience")
-        
+            top_missing.append(f"{job_requirements.experience.minimum_years}+ years experience")
+        top_missing.extend([q.title() for q in missing_qualifications[:2]])
+        top_missing.extend([l.title() for l in missing_languages[:2]])
+        top_missing.extend([r for r in missing_responsibilities[:2]])
+
+        # Prepare matched lists (no longer returned; used for strengths composition only)
+
         return MatchingScore(
             overall_match_score=overall_score,
             overall_explanation=overall_exp,
@@ -364,27 +428,9 @@ class EnhancedScoringEngine:
             qualifications_explanation=qual_exp,
             key_responsibilities_score=resp_score,
             key_responsibilities_explanation=resp_exp,
-            missing_requirements=missing,
-            improvement_suggestions=[f"Consider developing skills in: {', '.join(missing[:3])}" if missing else "Strong overall profile"],
-            matched_skills=matched_tech,
-            matched_qualifications=[],  # Could be enhanced
-            matched_languages=list(set(cv_analysis.key_information.languages) & set(job_requirements.languages)),
+            improvement_suggestions=[f"Consider developing skills in: {', '.join(top_missing[:3])}" if top_missing else "Strong overall profile"],
             strengths=strengths,
-            gaps=gaps,
-            confidences={
-                "overall": 0.85,
-                "technical_skills": 0.9,
-                "soft_skills": 0.7,
-                "experience": 0.8,
-                "qualifications": 0.6,
-                "responsibilities": 0.6
-            },
-            quality={
-                "completeness": 0.9,
-                "specificity": 0.85,
-                "consistency": 0.9,
-                "notes": f"Enhanced scoring with {industry} industry profile"
-            }
+            gaps=gaps
         )
 
 # Global instance

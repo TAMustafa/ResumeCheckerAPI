@@ -5,10 +5,10 @@ services:
     build: .
     container_name: resumechecker_app
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LOGFIRE_API_KEY=${LOGFIRE_API_KEY}
-      - LOGFIRE_PROJECT=${LOGFIRE_PROJECT}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LOGFIRE_API_KEY=${LOGFIRE_API_KEY:-}
+      - LOGFIRE_PROJECT=${LOGFIRE_PROJECT:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       - PORT=8000
       - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-10}
     volumes:
@@ -36,7 +36,7 @@ services:
       - app
     restart: unless-stopped
     environment:
-      - DOMAIN=${DOMAIN}
+      - DOMAIN=${DOMAIN:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:80 >/dev/null 2>&1 || exit 1"]
       interval: 30s

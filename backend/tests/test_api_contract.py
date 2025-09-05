@@ -96,7 +96,7 @@ def mock_agents(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(agents, "analyze_job_vacancy", fake_analyze_job_vacancy)
     monkeypatch.setattr(agents, "analyze_cv", fake_analyze_cv)
-    monkeypatch.setattr(agents, "score_cv_match", fake_score_cv_match)
+    # NOTE: score_cv_match is now deterministic via scoring_engine; do not monkeypatch.
 
 
 def test_healthz(client: TestClient):
@@ -172,6 +172,17 @@ def test_score_cv_match(client: TestClient, mock_agents):
     )
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data["overall_match_score"] == 75
-    assert data["missing_requirements"] == ["Kubernetes"]
-    assert data["improvement_suggestions"] == ["Learn Kubernetes"]
+    # Deterministic scoring should return required keys
+    for key in [
+        "overall_match_score",
+        "overall_explanation",
+        "technical_skills_score",
+        "experience_score",
+        "qualifications_score",
+        "key_responsibilities_score",
+        "improvement_suggestions",
+    ]:
+        assert key in data
+    # No explicit per-category matches are required in the API response anymore
+
+    # UI no longer depends on Matches & Misses; do not assert per-category comparison fields

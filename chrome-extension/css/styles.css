@@ -479,6 +479,7 @@ ul li {
 .chip.green { background: #43a047; }
 .chip.amber { background: #fbbc04; color: #222; }
 .chip.red { background: #d93025; }
+.chip.purple { background: #6d28d9; }
 
 /* Compact lists */
 .compact-list { margin: 0; padding-left: 1.1rem; }

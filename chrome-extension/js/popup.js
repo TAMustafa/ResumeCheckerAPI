@@ -35,13 +35,10 @@ const resultsSection = document.getElementById('results');
 const matchScore = document.getElementById('match-score');
 const overallExplanation = document.getElementById('overall-explanation');
 
-// Results lists/chips
+// Results lists (chips for Matches & Misses removed)
 const strengthsList = document.getElementById('strengths-list');
 const gapsList = document.getElementById('gaps-list');
-const chipsMatchedSkills = document.getElementById('matched-skills');
-const chipsMatchedQualifications = document.getElementById('matched-qualifications');
-const chipsMatchedLanguages = document.getElementById('matched-languages');
-const chipsMissing = document.getElementById('missing-requirements');
+// removed: matched/missing chip containers
 const suggestionsList = document.getElementById('suggestions-list');
 // Per-category explanations
 const techExplanation = document.getElementById('tech-explanation');
@@ -250,10 +247,6 @@ function resetResults() {
   // Clear previous lists/chips
   if (strengthsList) strengthsList.innerHTML = '';
   if (gapsList) gapsList.innerHTML = '';
-  if (chipsMatchedSkills) chipsMatchedSkills.innerHTML = '';
-  if (chipsMatchedQualifications) chipsMatchedQualifications.innerHTML = '';
-  if (chipsMatchedLanguages) chipsMatchedLanguages.innerHTML = '';
-  if (chipsMissing) chipsMissing.innerHTML = '';
   if (suggestionsList) suggestionsList.innerHTML = '';
   if (techExplanation) techExplanation.textContent = '';
   if (expExplanation) expExplanation.textContent = '';
@@ -341,19 +334,13 @@ function updateResultsUI(score, cvAnalysis) {
 
   // Populate enhanced sections using helpers (keeps Pico.css unaffected)
   if (typeof UI !== 'undefined') {
-    // Strengths & gaps from CV analysis
-    const strengths = UI.safeArray(cvAnalysis?.candidate_suitability?.strengths);
-    const gaps = UI.safeArray(cvAnalysis?.candidate_suitability?.gaps);
-    UI.setList(strengthsList, strengths);
-    UI.setList(gapsList, gaps);
+    // Strengths & gaps (prefer backend scoring if available; fallback to CV analysis)
+    if (strengthsList) UI.setList(strengthsList, UI.safeArray(score.strengths?.length ? score.strengths : (cvAnalysis?.candidate_suitability?.strengths || [])));
+    if (gapsList) UI.setList(gapsList, UI.safeArray(score.gaps?.length ? score.gaps : (cvAnalysis?.candidate_suitability?.gaps || [])));
 
-    // Chips for matches and missing
-    UI.setChips(chipsMatchedSkills, UI.safeArray(score.matched_skills), 'blue');
-    UI.setChips(chipsMatchedQualifications, UI.safeArray(score.matched_qualifications), 'green');
-    UI.setChips(chipsMatchedLanguages, UI.safeArray(score.matched_languages), 'amber');
-    UI.setChips(chipsMissing, UI.safeArray(score.missing_requirements), 'red');
+    // Removed Matches & Misses chips rendering
 
-    // Suggestions list: only use improvement_suggestions to avoid duplicating "gaps" already shown above
+    // Suggestions list: only use improvement_suggestions to avoid duplicating "gaps"
     const uniqueSuggestions = Array.from(new Set(
       Array.isArray(score.improvement_suggestions) ? score.improvement_suggestions : []
     ));
@@ -508,45 +495,35 @@ function renderCvAnalysisSummary(result) {
   // Store the analysis for later use in the matching process
   lastCvAnalysis = result;
   
-  // Handle both array and object formats for recommendations
-  let recommendationsHtml = '';
-  
-  if (Array.isArray(result.recommendations) && result.recommendations.length > 0) {
-    // Handle array format
-    recommendationsHtml = `
-      <div class="recommendations">
-        <h4>Recommendations</h4>
-        <ul>
-          ${result.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-        </ul>
-      </div>`;
-  } else if (result.recommendations && typeof result.recommendations === 'object') {
-    // Handle object format with categories
-    const categories = Object.entries(result.recommendations)
-      .filter(([_, recs]) => Array.isArray(recs) && recs.length > 0);
-    
-    if (categories.length > 0) {
-      recommendationsHtml = '<div class="recommendations"><h4>Recommendations</h4>';
-      categories.forEach(([category, recs]) => {
-        const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        recommendationsHtml += `
-          <div class="recommendation-category">
-            <h5>${categoryName}</h5>
-            <ul>
-              ${recs.map(rec => `<li>${rec}</li>`).join('')}
-            </ul>
-          </div>`;
-      });
-      recommendationsHtml += '</div>';
-    }
-  }
-  
-  const html = `
+  // Extract strengths and gaps
+  const strengths = Array.isArray(result?.candidate_suitability?.strengths) ? result.candidate_suitability.strengths : [];
+  const gaps = Array.isArray(result?.candidate_suitability?.gaps) ? result.candidate_suitability.gaps : [];
+
+  // Extract categorized recommendations (object format preferred)
+  const recs = result?.recommendations || {};
+  const tailoring = Array.isArray(recs?.tailoring) ? recs.tailoring : [];
+  const interview = Array.isArray(recs?.interview_focus) ? recs.interview_focus : [];
+  const career = Array.isArray(recs?.career_development) ? recs.career_development : [];
+
+  // Helper to render a titled list (omit if empty)
+  const renderList = (title, items) => {
+    if (!items || !items.length) return '';
+    return `
+      <div class="mt-2">
+        <strong>${title}</strong>
+        <ul class="compact-list">${items.map(i => `<li>${UI ? UI.escapeHtml?.(String(i)) ?? String(i) : String(i)}</li>`).join('')}</ul>
+      </div>
+    `;
+  };
+
+  return `
     <div class="cv-analysis">
       <h3>CV Analysis Summary</h3>
-      ${recommendationsHtml || '<p>No recommendations available.</p>'}
+      ${renderList('Strengths', strengths)}
+      ${renderList('Gaps', gaps)}
+      ${renderList('Tailoring Recommendations', tailoring)}
+      ${renderList('Interview Focus Recommendations', interview)}
+      ${renderList('Career Development Recommendations', career)}
     </div>
   `;
-  
-  return html;
 }
