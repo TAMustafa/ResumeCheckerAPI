@@ -93,14 +93,14 @@
   // Internal small render helpers (use Pico-friendly markup)
   function renderListSection(title, items) {
     return `
-      <div style="margin-top:0.5rem;">
+      <div class="mt-2">
         <strong>${escapeHtml(title)}</strong>
         <ul class="compact-list">${items.map((i) => `<li>${escapeHtml(String(i))}</li>`).join('')}</ul>
       </div>`;
   }
   function renderChipsSection(title, items) {
     return `
-      <div style="margin-top:0.5rem;">
+      <div class="mt-2">
         <strong>${escapeHtml(title)}</strong>
         <div class="chips">${items.map((i) => `<span class="chip blue">${escapeHtml(String(i))}</span>`).join('')}</div>
       </div>`;
@@ -110,7 +110,7 @@
       ? content.map((c) => `<div>${escapeHtml(String(c))}</div>`).join('')
       : escapeHtml(String(content));
     return `
-      <div style="margin-top:0.5rem;">
+      <div class="mt-2">
         <strong>${escapeHtml(title)}</strong>
         <div>${body}</div>
       </div>`;

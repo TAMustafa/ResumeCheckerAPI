@@ -148,6 +148,12 @@ body {
   overflow-x: hidden;
 }
 
+/* Scrollbar styling (WebKit) */
+body::-webkit-scrollbar { width: 8px; }
+body::-webkit-scrollbar-track { background: var(--card-border-color); border-radius: 4px; }
+body::-webkit-scrollbar-thumb { background: var(--muted-color); border-radius: 4px; }
+body::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
 body {
   padding: var(--popup-padding);
   max-height: var(--popup-max-height);
@@ -477,3 +483,24 @@ ul li {
 .tab-section.active {
   display: block;
 }
+
+/* --- Utility classes (small, framework-agnostic) --- */
+.items-center { align-items: center; }
+.text-center { text-align: center; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.mt-2 { margin-top: 0.5rem !important; }
+.mb-2 { margin-bottom: 0.5rem !important; }
+.m-0 { margin: 0 !important; }
+.fw-bold { font-weight: 700; }
+.fs-xxl { font-size: 2.5rem; }
+
+/* Leading icon spacing for buttons */
+.icon-leading { margin-right: 8px; }
+
+/* Options page shared utilities */
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.status { margin-top: .5rem; min-height: 1.25rem; font-size: .9rem; }
+.muted { color: #6b7280; }
+.danger { background: #ef4444; }
+.warn { background: #b91c1c; }
+.stack { display: grid; gap: .5rem; }
