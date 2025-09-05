@@ -1,49 +1,71 @@
 <!doctype html>
-<html>
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
-    <title>Resume Checker Options</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Resume Checker • Settings</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; }
-      label { display: block; margin-top: 12px; font-weight: 600; }
-      input { width: 100%; padding: 8px; margin-top: 6px; box-sizing: border-box; }
-      .row { margin: 12px 0; }
-      .btn { margin-top: 16px; padding: 8px 12px; background: #1a73e8; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-      .btn.secondary { background: #6b7280; }
-      .status { margin-top: 10px; font-size: 12px; color: #374151; }
+      :root {
+        --primary: #1a73e8;
+      }
+      body.container { max-width: 720px; }
+      .actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+      .status { margin-top: .5rem; min-height: 1.25rem; font-size: .9rem; }
+      .muted { color: #6b7280; }
+      .danger { background: #ef4444; }
+      .warn { background: #b91c1c; }
+      .stack { display: grid; gap: .5rem; }
     </style>
   </head>
-  <body>
-    <h2>Resume Checker Settings</h2>
-    <p style="margin:8px 0 16px;color:#374151;font-size:13px">
-      Note: Your job description and CV will be sent to our server and the selected LLM provider for analysis. 
-      By using this extension you agree to this processing.
-      See our <a id="privacyLink" href="#" target="_blank">Privacy Policy</a> and <a id="termsLink" href="#" target="_blank">Terms</a>.
-    </p>
-    <div class="row">
-      <label for="provider">LLM Provider</label>
-      <select id="provider">
-        <option value="openai">OpenAI</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="model">Model</label>
-      <input id="model" type="text" placeholder="e.g., gpt-4o, gpt-4.1-mini" />
-      <small id="modelHelp" style="color:#6b7280">Defaults are applied if left blank.</small>
-    </div>
-    <div class="row">
-      <label for="apiKey">API Key</label>
-      <input id="apiKey" type="password" placeholder="Enter your provider API key" />
-    </div>
-    <div class="row" style="display:flex;align-items:center;gap:8px">
-      <input id="syncOptIn" type="checkbox" />
-      <label for="syncOptIn" style="margin:0;font-weight:500">Sync my API key across devices (not recommended). Default is local-only storage.</label>
-    </div>
-    <button id="saveBtn" class="btn">Save</button>
-    <button id="testBtn" class="btn secondary">Test Connection</button>
-    <button id="removeBtn" class="btn secondary" style="background:#ef4444">Remove Key</button>
-    <button id="purgeBtn" class="btn secondary" style="background:#b91c1c">Purge Stored Data</button>
-    <div id="status" class="status"></div>
+  <body class="container">
+    <header>
+      <hgroup>
+        <h1>Resume Checker Settings</h1>
+        <p class="muted">OpenAI is the only supported LLM for now. Configure your model and API key below.</p>
+      </hgroup>
+    </header>
+
+    <main>
+      <article>
+        <p class="muted">
+          Your job description and CV will be sent to our server and the configured LLM provider for analysis.
+          By using this extension you agree to this processing. See our
+          <a id="privacyLink" href="#" target="_blank">Privacy Policy</a> and <a id="termsLink" href="#" target="_blank">Terms</a>.
+        </p>
+
+        <div class="grid">
+          <div>
+            <label>LLM Provider</label>
+            <input type="text" value="OpenAI" disabled />
+            <small class="muted">Only OpenAI is supported at this time.</small>
+          </div>
+          <div>
+            <label for="model">Model</label>
+            <input id="model" type="text" placeholder="e.g., gpt-4o, gpt-4.1-mini" />
+            <small class="muted">Defaults are applied if left blank.</small>
+          </div>
+        </div>
+
+        <label for="apiKey" class="mt-2">OpenAI API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-..." />
+
+        <label for="syncOptIn" class="mt-2">Key Sync</label>
+        <div class="stack">
+          <label>
+            <input id="syncOptIn" type="checkbox" />
+            Sync my API key across devices (not recommended). Default is local-only storage.
+          </label>
+        </div>
+
+        <div class="actions mt-2">
+          <button id="saveBtn" class="primary">Save</button>
+          <button id="testBtn" class="contrast">Test Connection</button>
+          <button id="removeBtn" class="secondary danger">Remove Key</button>
+        </div>
+        <div id="status" class="status"></div>
+      </article>
+    </main>
 
     <script src="js/options.js"></script>
   </body>

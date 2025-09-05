@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Header, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
@@ -34,10 +34,10 @@ MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 # Require per-user OpenAI API key by default (can be overridden via env)
 REQUIRE_USER_API_KEY = os.getenv("REQUIRE_USER_API_KEY", "true").lower() in {"1", "true", "yes"}
 
-# Data retention: control whether uploaded CVs are retained on disk after analysis.
-# Defaults to False (do not retain) for privacy. When False, the server deletes
-# the uploaded file immediately after analysis, and listing/downloading is disabled.
-RETAIN_UPLOADED_CVS = os.getenv("RETAIN_UPLOADED_CVS", "false").lower() in {"1", "true", "yes"}
+# Data retention policy: do NOT retain uploaded CVs on the server.
+# Files are processed and deleted immediately after analysis.
+# This is hardcoded for Chrome Web Store compliance (no server storage of user CVs).
+RETAIN_UPLOADED_CVS = False
 
 # CORS configuration
 # Prefer explicit ALLOWED_ORIGINS; otherwise build safe defaults.
@@ -48,7 +48,7 @@ if _allowed_env:
     ALLOWED_ORIGINS = [o.strip() for o in _allowed_env.split(",") if o.strip()]
 else:
     ALLOWED_ORIGINS = [
-        "http://91.98.122.7",  # Server origin (HTTP for now)
+        "http://cv.kroete.io",  # Server origin (HTTP for now)
         "http://localhost:8000",  # Dev local
     ]
     _ext_id = os.getenv("CHROME_EXTENSION_ID", "").strip()
@@ -182,143 +182,6 @@ async def api_analyze_cv(
         if 'file' in locals():
             await file.close()
 
-class CVFile(BaseModel):
-    filename: str
-    originalname: str
-    size: int
-    uploaded_at: str
-
-@app.get("/api/uploaded-cvs", response_model=List[CVFile])
-async def list_uploaded_cvs():
-    """
-    List all previously uploaded CVs in the uploaded_cvs directory.
-    Returns a list of CV files with their metadata.
-    """
-    try:
-        if not RETAIN_UPLOADED_CVS:
-            return []
-        cv_files = []
-        for file_path in UPLOAD_DIR.glob("*.pdf"):  # Only list PDF files
-            if file_path.is_file():
-                stat = file_path.stat()
-                cv_files.append({
-                    "filename": file_path.name,
-                    "originalname": file_path.name,  # In a real app, you might store the original name separately
-                    "size": stat.st_size,
-                    "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
-                })
-        
-        # Sort by upload time (newest first)
-        cv_files.sort(key=lambda x: x["uploaded_at"], reverse=True)
-        return cv_files
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing CVs: {str(e)}"
-        )
-
-@app.get("/uploaded_cvs/{filename}")
-async def get_uploaded_cv(filename: str):
-    """
-    Serve an uploaded CV file.
-    """
-    try:
-        if not RETAIN_UPLOADED_CVS:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found"
-            )
-        # Security: Only allow PDF files
-        if not filename.lower().endswith('.pdf'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are allowed"
-            )
-            
-        file_path = UPLOAD_DIR / filename
-        
-        # Security: Prevent directory traversal
-        try:
-            file_path = file_path.resolve()
-            if not file_path.is_relative_to(UPLOAD_DIR.resolve()) or not file_path.is_file():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="File not found"
-                )
-        except (ValueError, RuntimeError):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid filename"
-            )
-            
-        return FileResponse(
-            str(file_path),
-            media_type="application/pdf",
-            filename=filename
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving CV: {str(e)}"
-        )
-
-@app.delete("/api/uploaded-cvs/{filename}", status_code=204)
-async def delete_uploaded_cv(filename: str):
-    """
-    Delete an uploaded CV file. Only allows deletion of PDF files inside the
-    configured upload directory. Returns 204 on success.
-    """
-    try:
-        if not RETAIN_UPLOADED_CVS:
-            # Nothing to delete / feature disabled
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found"
-            )
-        # Only allow PDF files
-        if not filename.lower().endswith('.pdf'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are allowed"
-            )
-
-        file_path = UPLOAD_DIR / filename
-
-        # Prevent directory traversal and ensure file exists
-        try:
-            resolved = file_path.resolve()
-            if not resolved.is_relative_to(UPLOAD_DIR.resolve()) or not resolved.is_file():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="File not found"
-                )
-        except (ValueError, RuntimeError):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid filename"
-            )
-
-        # Perform deletion
-        resolved.unlink(missing_ok=False)
-        # 204 No Content
-        return
-    
-    except HTTPException:
-        raise
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting CV: {str(e)}"
-        )
 
 class ScoreRequest(BaseModel):
     cv_analysis: dict

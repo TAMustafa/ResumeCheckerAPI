@@ -1,12 +1,12 @@
 # Quick Reference
 
-- Base URL: http://$IP (Caddy on :80) until DOMAIN is configured
+- Base URL: http://cv.kroete.io (no SSL currently)
 - Health: GET /healthz -> {"status":"ok"}
 
 Env vars
 - REQUIRE_USER_API_KEY: enforce per-request key header (default true)
 - OPENAI_API_KEY: optional server fallback key (avoid setting when REQUIRE_USER_API_KEY=true)
-- ALLOWED_ORIGINS: comma-separated list of allowed origins (e.g., http://$IP,chrome-extension://<id>)
+- ALLOWED_ORIGINS: comma-separated list of allowed origins (e.g., http://cv.kroete.io,chrome-extension://<id>)
 - DOMAIN: domain served by Caddy (required for HTTPS)
 - MAX_UPLOAD_MB: max upload size in MB (default 10)
 - GUNICORN_WORKERS: default 2
@@ -25,9 +25,7 @@ Key endpoints
 - POST /analyze-job-vacancy { vacancy_text }
 - POST /analyze-cv (multipart file=PDF)
 - POST /score-cv-match { cv_analysis, job_requirements }
-- GET /api/uploaded-cvs
-- DELETE /api/uploaded-cvs/{filename}
-- GET /uploaded_cvs/{filename}
+  (server-side CV listing/downloading/deleting endpoints removed to avoid retention)
 
 Docker/compose
 - Build+run: docker compose up -d --build

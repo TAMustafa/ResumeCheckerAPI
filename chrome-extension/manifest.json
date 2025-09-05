@@ -24,11 +24,11 @@
     "128": "images/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:8000 http://91.98.122.7 http://91.98.122.7:8000; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:8000 http://cv.kroete.io http://cv.kroete.io:8000; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
   },
   "host_permissions": [
     "http://localhost:8000/*",
-    "http://91.98.122.7/*",
-    "http://91.98.122.7:8000/*"
+    "http://cv.kroete.io/*",
+    "http://cv.kroete.io:8000/*"
   ]
 }

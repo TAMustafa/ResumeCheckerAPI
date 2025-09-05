@@ -61,7 +61,7 @@ FastAPI backend that analyzes resumes (PDF) and matches them against job descrip
    # optional fallback if user does not provide a key from the extension
    OPENAI_API_KEY=sk-...
    # comma-separated list of allowed origins (API domain and extension origin)
-   ALLOWED_ORIGINS=https://api.example.com,chrome-extension://*
+   ALLOWED_ORIGINS=http://cv.kroete.io,chrome-extension://*
    ```
 
 ### Run the FastAPI server
@@ -70,7 +70,9 @@ FastAPI backend that analyzes resumes (PDF) and matches them against job descrip
 uvicorn app:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:8000`.
+
+In production, the API is accessible at `http://cv.kroete.io` (HTTP, no SSL currently).
 
 ## Usage
 
@@ -81,22 +83,6 @@ The API will be available at `http://localhost:8000`
 
 The backend provides the following RESTful endpoints:
 
-- `GET /api/uploaded-cvs`: List all previously uploaded CVs
-
-  **Returns:**  
-  List of CV files with metadata:
-
-  ```json
-  [
-    {
-      "filename": "resume.pdf",
-      "originalname": "resume.pdf",
-      "size": 12345,
-      "uploaded_at": "2025-06-15T10:30:00"
-    }
-  ]
-  ```
-
 - `POST /analyze-job-vacancy`: Analyze job description
 
   ```json
@@ -105,12 +91,7 @@ The backend provides the following RESTful endpoints:
   }
   ```
 
-- `DELETE /api/uploaded-cvs/{filename}`: Delete a previously uploaded CV (PDF only)
-
-  - Only accepts filenames ending with `.pdf`
-  - Returns `204 No Content` on successful deletion
-  - Returns `404 Not Found` if the file does not exist
-  - Returns `400 Bad Request` for invalid filenames or non-PDF files
+> Note: The backend does not store CVs on the server. Uploaded files are processed and deleted immediately after analysis; there are no endpoints to list, download, or delete server-stored CVs.
 
   **Returns:**  
   Structured job requirements as JSON, e.g.:
@@ -140,9 +121,9 @@ The backend provides the following RESTful endpoints:
   - Only accepts PDF files
   - Returns the CV analysis
   
-  **File Management:**  
-  - Files are stored in the `uploaded_cvs` directory
-  - Filenames are preserved from the uploaded file
+  **File Handling & Privacy:**  
+  - CV PDFs are validated and processed in-memory/on-disk transiently
+  - Files are deleted immediately after analysis (no server retention)
   - Only PDF files are accepted
 
   - Content-Type: multipart/form-data
@@ -267,8 +248,8 @@ This repo includes `docker-compose.yml` and a hardened `Caddyfile` for TLS termi
 OPENAI_API_KEY=sk-...                 # Optional server fallback
 LOGFIRE_API_KEY=lfk_...               # Optional observability
 LOGFIRE_PROJECT=your-project          # Optional
-ALLOWED_ORIGINS=https://api.example.com,chrome-extension://<id>
-DOMAIN=api.example.com                # Domain served by Caddy (required for HTTPS)
+ALLOWED_ORIGINS=http://cv.kroete.io,chrome-extension://<id>
+DOMAIN=cv.kroete.io                   # When enabling HTTPS via Caddy later
 MAX_UPLOAD_MB=10                      # Max PDF size in MB (default 10)
 GUNICORN_WORKERS=2                    # Optional tuning
 GUNICORN_THREADS=1                    # Optional tuning
@@ -288,6 +269,41 @@ docker compose up -d --build
 Notes:
 - Set `ALLOWED_ORIGINS` to include your prod domain and the Chrome extension origin.
 - `uploaded_cvs/` is mounted as a volume to persist files across restarts.
+
+If you are not using Caddy/HTTPS yet, you can serve directly over HTTP at `http://cv.kroete.io` and set `ALLOWED_ORIGINS` accordingly.
+
+## SSL Migration (HTTP -> HTTPS)
+
+When you're ready to enable HTTPS for `cv.kroete.io`, follow these steps:
+
+1) Backend CORS
+- File: `backend/app.py`
+- Change default allowed origins to use HTTPS:
+  - From `http://cv.kroete.io` to `https://cv.kroete.io`
+- Or set env var at runtime:
+  - `ALLOWED_ORIGINS=https://cv.kroete.io,chrome-extension://<extension-id>`
+
+2) Chrome Extension
+- File: `chrome-extension/js/api.js`
+  - Update default base URL: `let API_BASE_URL = 'https://cv.kroete.io'`
+- File: `chrome-extension/js/options.js`
+  - Update default base URL fallback in Options
+- File: `chrome-extension/manifest.json`
+  - In `content_security_policy.extension_pages.connect-src`, replace `http://cv.kroete.io` with `https://cv.kroete.io`
+  - In `host_permissions`, replace `http://cv.kroete.io/*` with `https://cv.kroete.io/*`
+- Reload the extension from `chrome://extensions` after changes
+
+3) Reverse Proxy (Caddy)
+- File: `backend/Caddyfile`
+  - Set `DOMAIN=cv.kroete.io` (env) and ensure ports 80/443 are open
+  - Caddy will obtain certificates automatically and redirect HTTP->HTTPS
+
+4) Testing
+- Verify: `curl -I https://cv.kroete.io/healthz`
+- Run e2e tests (they mock network calls, no change required)
+
+5) Security headers (optional but recommended)
+- Keep Caddy’s security headers (HSTS, etc.) enabled once HTTPS is live
 
 ## Contributing
 

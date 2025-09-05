@@ -62,6 +62,13 @@
       <h1>Resume Checker</h1>
       <p>Upload your CV and job description to see how well they match</p>
     </hgroup>
+    <div class="header-actions">
+      <button id="open-settings" class="icon-btn" type="button" aria-label="Open settings" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M19.14,12.94a7.42,7.42,0,0,0,.05-.94,7.42,7.42,0,0,0-.05-.94l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.28,7.28,0,0,0-1.63-.94l-.38-2.65A.5.5,0,0,0,12.62,1H9.38a.5.5,0,0,0-.49.41L8.51,4.06a7.28,7.28,0,0,0-1.63.94l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L4.06,11.06a7.42,7.42,0,0,0-.05.94,7.42,7.42,0,0,0,.05.94L1.95,14.59a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.28,7.28,0,0,0,1.63.94l.38,2.65a.5.5,0,0,0,.49.41h3.24a.5.5,0,0,0,.49-.41l.38-2.65a7.28,7.28,0,0,0,1.63-.94l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- Tab Navigation -->
@@ -103,19 +110,7 @@
           <small id="file-name" class="secondary">No file chosen</small>
         </div>
         
-        <div class="cv-dropdown">
-          <label for="saved-cvs">Or select a previously uploaded CV:</label>
-          <div class="grid" style="grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end;">
-            <select id="saved-cvs" class="select">
-              <option value="" disabled selected>Select a CV</option>
-            </select>
-            <button id="delete-cv-btn" class="icon-btn contrast" type="button" aria-label="Delete selected CV" title="Delete selected CV" disabled>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M9 3a1 1 0 0 0-1 1v1H4a1 1 0 1 0 0 2h1v12a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V7h1a1 1 0 1 0 0-2h-4V4a1 1 0 0 0-1-1H9zm2 2h2V4h-2v1zM8 7h8v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V7zm2 2a1 1 0 0 0-1 1v8a1 1 0 1 0 2 0V10a1 1 0 0 0-1-1zm4 0a1 1 0 0 0-1 1v8a1 1 0 1 0 2 0V10a1 1 0 0 0-1-1z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <!-- Removed server-stored CV dropdown to avoid retention -->
       </div>
       <button id="analyze-cv-btn" type="button" class="primary" style="margin-top:0.5rem;">Analyze CV</button>
       <div id="cv-analysis-summary" class="mt-2"></div>

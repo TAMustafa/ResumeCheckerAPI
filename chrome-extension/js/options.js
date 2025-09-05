@@ -1,11 +1,10 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const providerEl = document.getElementById('provider');
+  // Elements (OpenAI-only)
   const apiKeyEl = document.getElementById('apiKey');
   const modelEl = document.getElementById('model');
   const saveBtn = document.getElementById('saveBtn');
   const testBtn = document.getElementById('testBtn');
   const removeBtn = document.getElementById('removeBtn');
-  const purgeBtn = document.getElementById('purgeBtn');
   const statusEl = document.getElementById('status');
   const syncOptInEl = document.getElementById('syncOptIn');
   const privacyLink = document.getElementById('privacyLink');
@@ -13,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Backend URL: prefer stored override, else default to current IP
   const localCfg = await new Promise((resolve) => chrome.storage.local.get(['apiBaseUrl', 'syncKeysOptIn'], resolve));
-  const API_BASE_URL = localCfg?.apiBaseUrl || 'http://91.98.122.7';
+  const API_BASE_URL = localCfg?.apiBaseUrl || 'http://cv.kroete.io';
 
   function setStatus(msg, ok = true) {
     statusEl.textContent = msg;
@@ -23,16 +22,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load settings from local first; if syncOptIn is true, merge sync as fallback
   const syncOptIn = !!localCfg?.syncKeysOptIn;
-  const local = await new Promise((resolve) => chrome.storage.local.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey', 'syncKeysOptIn'], resolve));
+  const local = await new Promise((resolve) => chrome.storage.local.get(['llmKeys', 'llmModels', 'openaiKey', 'syncKeysOptIn'], resolve));
   let sync = {};
   if (syncOptIn) {
-    sync = await new Promise((resolve) => chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], resolve));
+    sync = await new Promise((resolve) => chrome.storage.sync.get(['llmKeys', 'llmModels', 'openaiKey'], resolve));
   }
 
   const provider = 'openai';
   const keys = local?.llmKeys || sync?.llmKeys || {};
   const models = local?.llmModels || sync?.llmModels || {};
-  providerEl.value = provider;
   apiKeyEl.value = keys[provider] || local?.openaiKey || sync?.openaiKey || '';
   const defaults = { openai: 'gpt-4o' };
   modelEl.value = models[provider] || defaults[provider] || '';
@@ -42,22 +40,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (privacyLink) privacyLink.href = '#';
   if (termsLink) termsLink.href = '#';
 
-  providerEl.addEventListener('change', async () => {
-    // Load the key for the selected provider from local (then sync fallback if opted-in)
-    const provider = providerEl.value;
-    const local = await new Promise((resolve) => chrome.storage.local.get(['llmKeys', 'llmModels', 'openaiKey', 'syncKeysOptIn'], resolve));
-    const syncOptIn = !!local?.syncKeysOptIn;
-    let sync = {};
-    if (syncOptIn) sync = await new Promise((resolve) => chrome.storage.sync.get(['llmKeys', 'llmModels', 'openaiKey'], resolve));
-    const keys = local?.llmKeys || sync?.llmKeys || {};
-    const models = local?.llmModels || sync?.llmModels || {};
-    apiKeyEl.value = keys[provider] || local?.openaiKey || sync?.openaiKey || '';
-    const defaults = { openai: 'gpt-4o' };
-    modelEl.value = models[provider] || defaults[provider] || '';
-  });
+  // No provider dropdown anymore; OpenAI is assumed.
 
   saveBtn.addEventListener('click', async () => {
-    const provider = providerEl.value;
+    const provider = 'openai';
     const key = apiKeyEl.value.trim();
     const model = modelEl.value.trim();
     const syncOptIn = !!(syncOptInEl && syncOptInEl.checked);
@@ -80,7 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   removeBtn.addEventListener('click', async () => {
-    const provider = providerEl.value;
+    const provider = 'openai';
     const local = await new Promise((resolve) => chrome.storage.local.get(['llmKeys', 'llmModels', 'syncKeysOptIn'], resolve));
     const keys = { ...(local?.llmKeys || {}) };
     delete keys[provider];
@@ -105,23 +91,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  if (purgeBtn) {
-    purgeBtn.addEventListener('click', async () => {
-      const ok = confirm('This will permanently delete any stored CV files on the server. Continue?');
-      if (!ok) return;
-      try {
-        const resp = await fetch(`${API_BASE_URL}/api/purge`, { method: 'POST' });
-        if (!resp.ok) {
-          const text = await resp.text();
-          setStatus(`Purge failed: ${resp.status} ${text}`, false);
-          return;
-        }
-        const data = await resp.json();
-        const deleted = typeof data?.deleted_files === 'number' ? data.deleted_files : 0;
-        setStatus(`Purged. Deleted files: ${deleted}.`);
-      } catch (e) {
-        setStatus(`Purge failed: ${e.message}`, false);
-      }
-    });
-  }
+  // No purge functionality (no server-side retention)
 });

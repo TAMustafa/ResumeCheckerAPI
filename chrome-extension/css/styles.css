@@ -178,6 +178,26 @@ header p {
   font-size: 0.9em;
 }
 
+/* Header actions (e.g., settings icon) */
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.header-actions .icon-btn {
+  border: 1px solid var(--card-border-color);
+  border-radius: var(--border-radius);
+  background: var(--card-background-color);
+  color: #374151;
+}
+.header-actions .icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.header-actions .icon-btn:hover {
+  background: #f3f4f6;
+}
+
 /* File Upload */
 .sr-only {
   position: absolute;

@@ -29,8 +29,6 @@ tabResultBtn.addEventListener('click', async () => {
 // DOM Elements (update selectors for new structure)
 const cvUpload = document.getElementById('cv-upload');
 const uploadBtn = document.getElementById('upload-btn');
-const savedCvsSelect = document.getElementById('saved-cvs');
-const deleteCvBtn = document.getElementById('delete-cv-btn');
 const fileName = document.getElementById('file-name');
 const jobDescription = document.getElementById('job-description');
 const resultsSection = document.getElementById('results');
@@ -79,7 +77,6 @@ let lastCvAnalysis = null;
 // Event Listeners
 uploadBtn.addEventListener('click', () => cvUpload.click());
 cvUpload.addEventListener('change', handleFileUpload);
-savedCvsSelect.addEventListener('change', handleCvSelect);
 jobDescription.addEventListener('input', validateForm);
 // When job text changes, invalidate previous job analysis
 jobDescription.addEventListener('input', () => { jobRequirements = null; });
@@ -132,64 +129,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   resetResults();
   validateForm();
-  await fetchUploadedCVs();
-  updateDeleteButtonState();
+  // Removed fetching of server-stored CVs (no retention)
+
+  // Settings button -> open options page
+  const settingsBtn = document.getElementById('open-settings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      if (chrome.runtime?.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+      } else {
+        window.open(chrome.runtime.getURL('options.html'));
+      }
+    });
+  }
 });
 
-// Fetch list of previously uploaded CVs from the backend
-async function fetchUploadedCVs() {
-  try {
-    const cvs = await API.fetchUploadedCVs();
-    updateCvDropdown(cvs);
-  } catch (error) {
-    console.error('Error fetching CVs:', error);
-  }
-}
-
-// Update the CV dropdown with the list of uploaded CVs
-function updateCvDropdown(cvs) {
-  // Clear existing options except the first one
-  while (savedCvsSelect.options.length > 1) {
-    savedCvsSelect.remove(1);
-  }
-  
-  // Add new options
-  cvs.forEach(cv => {
-    const option = document.createElement('option');
-    option.value = cv.filename;
-    option.textContent = cv.originalname || cv.filename;
-    savedCvsSelect.appendChild(option);
-  });
-
-  // Keep delete button state in sync
-  updateDeleteButtonState();
-}
-
-// Handle CV selection from dropdown
-function handleCvSelect(event) {
-  const selectedCv = event.target.value;
-  if (!selectedCv) return;
-  
-  // Reset file input
-  cvUpload.value = '';
-  fileName.textContent = 'Using selected CV: ' + selectedCv;
-  
-  // Set the cvFile to indicate a file is selected
-  cvFile = { name: selectedCv, isFromDropdown: true };
-  validateForm();
-  resetResults();
-  updateDeleteButtonState();
-}
+// Removed server-stored CV dropdown and related handlers
 
 // Update the file name display when a file is selected
 function handleFileUpload(event) {
   const file = event.target.files[0];
   
-  // Reset dropdown selection when a new file is uploaded
-  if (savedCvsSelect) {
-    savedCvsSelect.selectedIndex = 0;
-    updateDeleteButtonState();
-  }
+  // No dropdown to reset (no server retention)
   
   if (file && file.type === 'application/pdf') {
     cvFile = file;
@@ -250,41 +211,7 @@ function resetResults() {
 
 // clearAll() was unused and has been removed
 
-// Enable/disable delete button based on selection
-function updateDeleteButtonState() {
-  if (!deleteCvBtn) return;
-  deleteCvBtn.disabled = !savedCvsSelect || !savedCvsSelect.value;
-}
-
-// Delete selected CV
-if (deleteCvBtn) {
-  deleteCvBtn.addEventListener('click', async () => {
-    const selected = savedCvsSelect?.value;
-    if (!selected) return;
-
-    const confirmed = confirm(`Delete "${selected}"? This cannot be undone.`);
-    if (!confirmed) return;
-
-    try {
-      await API.deleteUploadedCv(selected);
-
-      // Refresh list and UI state
-      await fetchUploadedCVs();
-      if (savedCvsSelect) savedCvsSelect.selectedIndex = 0;
-      updateDeleteButtonState();
-
-      // Clear file input and state
-      cvUpload.value = '';
-      fileName.textContent = 'No file chosen';
-      cvFile = null;
-      validateForm();
-      resetResults();
-    } catch (err) {
-      console.error('Error deleting CV:', err);
-      alert('Error deleting CV. Please try again.');
-    }
-  });
-}
+// Removed delete button logic (no server retention)
 
 // Main function to handle document analysis
 async function analyzeDocuments() {

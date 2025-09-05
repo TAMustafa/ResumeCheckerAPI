@@ -3,7 +3,7 @@
 
 (function initAPI(global) {
   // Default base URL (IP for now). Will switch to HTTPS domain later.
-  let API_BASE_URL = 'http://91.98.122.7';
+  let API_BASE_URL = 'http://cv.kroete.io';
   let LLM_PROVIDER = 'openai';
   let LLM_KEYS = {}; // { openai, deepseek, anthropic }
   let LLM_MODELS = {}; // per-provider model mapping
@@ -76,19 +76,7 @@
   async function analyzeCV(file, DEBUG = false) {
     ensureKey();
     const formData = new FormData();
-    if (file && file.isFromDropdown) {
-      if (DEBUG) console.log('Analyzing CV from dropdown:', file.name);
-      const encodedFilename = encodeURIComponent(file.name);
-      const response = await apiFetch(`/uploaded_cvs/${encodedFilename}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch CV: ${response.status} - ${errorText}`);
-      }
-      const blob = await response.blob();
-      if (blob.size === 0) throw new Error('Received empty file from server');
-      const fetchedFile = new File([blob], file.name, { type: 'application/pdf' });
-      formData.append('file', fetchedFile, file.name);
-    } else if (file) {
+    if (file) {
       if (DEBUG) console.log('Uploading CV file:', file.name);
       formData.append('file', file, file.name);
     } else {
@@ -118,27 +106,13 @@
     return await response.json();
   }
 
-  async function fetchUploadedCVs() {
-    const response = await apiFetch(`/api/uploaded-cvs`);
-    if (!response.ok) throw new Error('Failed to fetch CVs');
-    return await response.json();
-  }
-
-  async function deleteUploadedCv(filename) {
-    const resp = await apiFetch(`/api/uploaded-cvs/${encodeURIComponent(filename)}`, { method: 'DELETE' });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Failed to delete: ${resp.status} ${text}`);
-    }
-  }
+  // Removed server-side CV listing/deletion to avoid retention
 
   global.API = {
     loadConfig,
     analyzeJobDescription,
     analyzeCV,
     getMatchingScore,
-    fetchUploadedCVs,
-    deleteUploadedCv,
     getBaseUrl: () => API_BASE_URL,
   };
 })(window);

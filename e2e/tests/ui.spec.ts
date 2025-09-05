@@ -115,38 +115,4 @@ test.describe('Popup UI (mocked backend, mocked chrome APIs)', () => {
   });
 });
 
-test.describe('Options page (purge stored data)', () => {
-  test('purges via backend and shows deleted count', async ({ page }) => {
-    // Auto-accept confirm dialog and mock chrome.storage
-    await page.addInitScript(() => {
-      // @ts-ignore
-      window.confirm = () => true;
-      const store: Record<string, any> = {
-        apiBaseUrl: 'http://91.98.122.7',
-        syncKeysOptIn: false,
-      };
-      // @ts-ignore
-      window.chrome = {
-        storage: {
-          local: {
-            get: (_keys: any, cb: any) => cb(store),
-            set: (obj: any, cb: any) => { Object.assign(store, obj); cb && cb(); },
-          },
-          sync: { get: (_k: any, cb: any) => cb({}), set: (_o: any, cb: any) => cb && cb() },
-        },
-      } as any;
-    });
-
-    // Mock purge endpoint
-    await page.route('**/api/purge', async route => {
-      await route.fulfill({ json: { status: 'ok', deleted_files: 3 } });
-    });
-
-    await page.goto(optionsFileUrl());
-
-    // Click Purge and expect success message
-    await page.click('#purgeBtn');
-    const status = page.locator('#status');
-    await expect(status).toContainText('Purged. Deleted files: 3');
-  });
-});
+// Purge/retention functionality removed; no options purge test
