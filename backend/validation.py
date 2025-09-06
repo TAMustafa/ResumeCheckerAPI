@@ -70,8 +70,8 @@ class DataValidator:
         completeness_issues = self._check_job_completeness(job_req)
         issues.extend(completeness_issues)
         
-        # Check confidence scores
-        confidence_issues = self._check_confidence_scores(job_req.confidences)
+        # Check confidence scores (optional field)
+        confidence_issues = self._check_confidence_scores(getattr(job_req, 'confidences', {}) or {})
         issues.extend(confidence_issues)
         
         # Calculate overall validation confidence
@@ -391,24 +391,26 @@ class DataValidator:
         
         cv_tech_skills = {s.lower() for s in cv_analysis.key_information.technical_skills}
         job_tech_skills = {s.lower() for s in job_requirements.required_skills.technical}
-        matched_skills = {s.lower() for s in score.matched_skills}
-        
-        # Check if matched skills exist in both CV and job
-        for skill in matched_skills:
-            if skill not in cv_tech_skills:
-                issues.append(ValidationIssue(
-                    field="matched_skills",
-                    issue_type="invalid",
-                    description=f"Matched skill '{skill}' not found in CV",
-                    severity="high"
-                ))
-            if skill not in job_tech_skills:
-                issues.append(ValidationIssue(
-                    field="matched_skills", 
-                    issue_type="invalid",
-                    description=f"Matched skill '{skill}' not found in job requirements",
-                    severity="high"
-                ))
+        # Some scoring implementations may not include 'matched_skills'. Guard accordingly.
+        matched_skills_attr = getattr(score, 'matched_skills', None)
+        if isinstance(matched_skills_attr, list):
+            matched_skills = {str(s).lower() for s in matched_skills_attr}
+            # Check if matched skills exist in both CV and job
+            for skill in matched_skills:
+                if skill not in cv_tech_skills:
+                    issues.append(ValidationIssue(
+                        field="matched_skills",
+                        issue_type="invalid",
+                        description=f"Matched skill '{skill}' not found in CV",
+                        severity="high"
+                    ))
+                if skill not in job_tech_skills:
+                    issues.append(ValidationIssue(
+                        field="matched_skills", 
+                        issue_type="invalid",
+                        description=f"Matched skill '{skill}' not found in job requirements",
+                        severity="high"
+                    ))
         
         return issues
     

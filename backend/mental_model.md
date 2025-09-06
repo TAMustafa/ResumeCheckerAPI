@@ -1,7 +1,7 @@
 # Mental Model
 
 - Architecture
-  - FastAPI app (`app.py`) exposes REST endpoints for analyzing job vacancies, uploading/analyzing CVs (PDF only), listing/deleting uploaded CVs, and scoring match.
+  - FastAPI app (`app.py`) exposes REST endpoints for analyzing job vacancies, uploading/analyzing CVs (PDF only), and scoring match.
   - Business logic for LLM interactions lives in `agents.py` using `pydantic-ai` Agents with strict Pydantic models from `models.py` and prompts in `prompts.py`.
   - `cache_utils.py` provides a per-process TTL LRU cache to reduce repeated LLM calls.
   - Reverse proxy/SSL termination via Caddy (`Caddyfile`) in front of the app service (`docker-compose.yml`).
@@ -9,7 +9,7 @@
 - Data flow
   - Client -> Caddy (TLS) -> FastAPI endpoint.
   - For /analyze-cv: file is validated (PDF+size), saved to `uploaded_cvs/`, read for hashing, then analyzed by the CV agent.
-  - For scoring: CV analysis JSON + job requirements JSON passed to scoring agent; responses strictly validated by Pydantic models.
+  - For scoring: CV analysis JSON + job requirements JSON passed to the LLM scoring agent (`agents.score_cv_match`); responses strictly validated by Pydantic models.
 
 - Security & ops
   - CORS controlled by `ALLOWED_ORIGINS` env; default is dev-friendly; must be restricted in prod.

@@ -6,7 +6,7 @@
 
 - The backend supports a per-request OpenAI API key via the header `X-OpenAI-Key`.
 - The Chrome extension stores the user's key and includes it on every request.
-- If the header is missing, the backend falls back to the server environment `OPENAI_API_KEY` (if set).
+- If the header is missing, the backend can optionally fall back to the server environment `OPENAI_API_KEY` (if set), but by default `REQUIRE_USER_API_KEY=true` and the key is required for all endpoints including `/score-cv-match`.
 
 # Resume Checker API
 
@@ -169,7 +169,9 @@ The backend provides the following RESTful endpoints:
   }
   ```
 
-  **Returns:**  
+  Authentication: requires `X-OpenAI-Key` (LLM-based scoring aligned with other analyses).
+
+  **Returns:**
   Detailed match scoring as JSON, e.g.:
 
   ```json
@@ -186,11 +188,9 @@ The backend provides the following RESTful endpoints:
     "qualifications_explanation": "...",
     "key_responsibilities_score": 70,
     "key_responsibilities_explanation": "...",
-    "missing_requirements": ["..."],
     "improvement_suggestions": ["..."],
-    "matched_skills": ["..."],
-    "matched_qualifications": ["..."],
-    "matched_languages": ["..."]
+    "strengths": ["..."],
+    "gaps": ["..."]
   }
   ```
 

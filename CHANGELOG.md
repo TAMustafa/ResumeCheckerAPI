@@ -7,6 +7,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 - TBD
 
+## [0.2.1] - 2025-09-06
+### Changed
+- Scoring is now LLM-based via `agents.score_cv_match` with a strict, intersection-focused prompt for higher-quality matches.
+- Unified model settings across tasks (removed per-task model settings).
+- `/score-cv-match` now consistently requires `X-OpenAI-Key` when `REQUIRE_USER_API_KEY=true` (aligned with other endpoints).
+
+### Removed
+- Deprecated deterministic scoring engine and its skill matcher implementation.
+
+### Documentation
+- Updated `backend/README.md` example response (removed deprecated fields; added strengths/gaps) and clarified key requirements for `/score-cv-match`.
+- Updated `backend/quick_reference.md`, `backend/implementation_details.md`, and `backend/mental_model.md` to reflect the new scoring pipeline and cache/version details.
+
 ## [0.2.0] - 2025-09-05
 ### Added
 - Chrome extension README with setup, permissions/CSP, and testing instructions (`chrome-extension/README.md`).

@@ -57,33 +57,13 @@ Notes:
 """
 
 # Bump this when changing prompts/model settings to invalidate caches safely
-AGENT_VERSION = "v2"
+AGENT_VERSION = "v3"
 
-# Base/default model settings; kept for backward-compatibility where needed
+# Base/default model settings used for all tasks
 _DEFAULT_MODEL_SETTINGS = {
     'temperature': 0.1,
     'max_tokens': 4000,
 }
-
-# Task-specific model settings (can be tuned without API changes)
-_TASK_MODEL_SETTINGS: dict[str, dict] = {
-    'job': {
-        'temperature': 0.1,
-        'max_tokens': 2500,
-    },
-    'cv': {
-        'temperature': 0.1,
-        'max_tokens': 3500,
-    },
-    'score': {
-        'temperature': 0.1,
-        'max_tokens': 3000,
-    },
-}
-
-def _settings_for_task(task: str) -> dict:
-    """Return model settings for a task with safe fallback."""
-    return _TASK_MODEL_SETTINGS.get(task, _DEFAULT_MODEL_SETTINGS)
 
 # Small in-process cache of Agent instances, keyed with versioning to avoid collisions
 _AGENT_CACHE: dict[tuple[str, str, str, str], Agent] = {}
@@ -98,7 +78,7 @@ def _model_string(provider: str, model: str | None) -> str:
 def _get_agent(task: str, provider: str | None, model: str | None):
     provider_norm = (provider or 'openai').lower()
     model_norm = (model or '').strip() or 'gpt-4o'
-    settings = _settings_for_task(task)
+    settings = _DEFAULT_MODEL_SETTINGS
     # Include version in cache key to avoid stale agents when prompts/settings change
     key = (task, provider_norm, model_norm, AGENT_VERSION)
     if key in _AGENT_CACHE:
@@ -164,7 +144,7 @@ async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None, pro
                 # Use enhanced system prompt optionally (no change by default)
                 if use_enhanced:
                     system_prompt = enhanced_prompts.get_job_analysis_prompt(vacancy_text)
-                    settings = _settings_for_task('job')
+                    settings = _DEFAULT_MODEL_SETTINGS
                     agent = Agent(model_id, output_type=JobRequirements, system_prompt=system_prompt, model_settings=settings)
                 else:
                     agent = _get_agent('job', provider, model)
@@ -209,8 +189,14 @@ async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str |
 
         async def _compute():
             async with _ApiKeyContext(api_key):
-                agent = _get_agent('cv', provider, model)
+                use_enhanced = os.getenv("USE_ENHANCED_PROMPTS", "false").lower() in {"1", "true", "yes"}
                 model_id = _model_string((provider or 'openai').lower(), (model or '').strip() or 'gpt-4o')
+                if use_enhanced:
+                    system_prompt = enhanced_prompts.get_cv_analysis_prompt()
+                    settings = _DEFAULT_MODEL_SETTINGS
+                    agent = Agent(model_id, output_type=CVAnalysis, system_prompt=system_prompt, model_settings=settings)
+                else:
+                    agent = _get_agent('cv', provider, model)
                 logfire.info("analyze_cv calling LLM", extra={"model_id": model_id, "task": "cv"})
                 result = await _run_with_retries(
                     lambda: agent.run([
@@ -259,9 +245,22 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
                 logfire.info("score_cv_match calling LLM", extra={"model_id": model_id, "task": "score"})
                 result = await _run_with_retries(
                     lambda: agent.run(
-                        "Provide a score between 0 and 100 based on how well the CV matches the job requirements based on common skills and requirements.\n\n"
-                        f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
-                        f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"
+                        (
+                            "You are an expert recruiter. Calculate a rigorous, evidence-based matching score strictly based on INTERSECTIONS between the CV and the Job Requirements.\n"
+                            "Do NOT infer skills or experience not present in both.\n\n"
+                            "Instructions:\n"
+                            "1) Identify overlapping items between CV.key_information and Job.required_skills/responsibilities/qualifications/languages.\n"
+                            "2) Score each category [technical_skills, soft_skills, experience, qualifications, key_responsibilities] from 0-100 using only overlaps.\n"
+                            "   - Technical/Soft skills: proportion of required skills present in CV (consider exact or clearly equivalent phrasing only).\n"
+                            "   - Experience: compare years explicitly stated in CV vs required minimum years.\n"
+                            "   - Qualifications: overlap between certifications/qualifications.\n"
+                            "   - Responsibilities: overlap between responsibilities.\n"
+                            "3) Provide concise explanations referencing the overlaps.\n"
+                            "4) Overall match is a balanced average of the above (no single category should dominate).\n"
+                            "5) Provide strengths as top overlapping items and gaps as most important missing required items.\n\n"
+                            f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
+                            f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"
+                        )
                     ),
                     timeout=60,
                 )

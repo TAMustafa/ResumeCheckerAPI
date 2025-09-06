@@ -85,18 +85,15 @@ def mock_agents(monkeypatch: pytest.MonkeyPatch):
             qualifications_explanation="BSc ok",
             key_responsibilities_score=55,
             key_responsibilities_explanation="Some overlap",
-            missing_requirements=["Kubernetes"],
             improvement_suggestions=["Learn Kubernetes"],
-            matched_skills=["Python"],
-            matched_qualifications=["BSc"],
-            matched_languages=["English"],
             strengths=["APIs"],
             gaps=["Kubernetes"],
         )
 
     monkeypatch.setattr(agents, "analyze_job_vacancy", fake_analyze_job_vacancy)
     monkeypatch.setattr(agents, "analyze_cv", fake_analyze_cv)
-    # NOTE: score_cv_match is now deterministic via scoring_engine; do not monkeypatch.
+    # Scoring now uses LLM by default; monkeypatch to deterministic output for tests
+    monkeypatch.setattr(agents, "score_cv_match", fake_score_cv_match)
 
 
 def test_healthz(client: TestClient):

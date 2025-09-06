@@ -35,6 +35,10 @@ CRITICAL INSTRUCTIONS:
 - Ensure internal consistency across all extracted fields
 - Quality metrics should reflect actual extraction completeness and specificity
 
+MULTILINGUAL HANDLING:
+- Inputs may be in languages other than English (e.g., Dutch). Internally translate as needed and normalize terminology before extraction/scoring.
+- Consider common equivalents across languages (e.g., "ontwikkelaar" ≈ "developer").
+
 STRUCTURED OUTPUT REQUIREMENTS:
 - All numeric scores must be integers within specified ranges
 - Confidence scores are floats between 0.0-1.0 based on information clarity

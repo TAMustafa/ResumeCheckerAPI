@@ -64,4 +64,5 @@ class MatchingScore(BaseModel):
     improvement_suggestions: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list, description="Key strengths identified in the CV")
     gaps: List[str] = Field(default_factory=list, description="Key areas for improvement or missing requirements")
-    model_config = {'strict': True}
+    # Be strict on types but ignore unknown extra fields for backward compatibility across versions
+    model_config = {'strict': True, 'extra': 'ignore'}

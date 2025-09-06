@@ -24,7 +24,7 @@ Request headers
 Key endpoints
 - POST /analyze-job-vacancy { vacancy_text }
 - POST /analyze-cv (multipart file=PDF)
-- POST /score-cv-match { cv_analysis, job_requirements }
+- POST /score-cv-match { cv_analysis, job_requirements } (LLM-based; requires X-OpenAI-Key when REQUIRE_USER_API_KEY=true)
   (server-side CV listing/downloading/deleting endpoints removed to avoid retention)
 
 Docker/compose
