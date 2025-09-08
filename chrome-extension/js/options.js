@@ -37,8 +37,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (syncOptInEl) syncOptInEl.checked = !!local?.syncKeysOptIn;
 
   // Set placeholder links (replace when you have live URLs)
-  if (privacyLink) privacyLink.href = '#';
-  if (termsLink) termsLink.href = '#';
+  if (privacyLink) privacyLink.href = 'https://cv.kroete.io/privacy';
+  if (termsLink) termsLink.href = 'https://cv.kroete.io/terms';
+
+  // Harden: explicitly open external links in a new tab even if stale HTML had '#'
+  if (privacyLink) {
+    privacyLink.addEventListener('click', (e) => {
+      try {
+        e.preventDefault();
+        window.open('https://cv.kroete.io/privacy', '_blank');
+      } catch (_) { /* no-op */ }
+    });
+  }
+  if (termsLink) {
+    termsLink.addEventListener('click', (e) => {
+      try {
+        e.preventDefault();
+        window.open('https://cv.kroete.io/terms', '_blank');
+      } catch (_) { /* no-op */ }
+    });
+  }
 
   // No provider dropdown anymore; OpenAI is assumed.
 

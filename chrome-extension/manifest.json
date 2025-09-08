@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Resume Checker",
-  "version": "1.0",
+  "version": "1.0.1",
   "description": "Analyze how well your CV matches a job description",
   "action": {
     "default_popup": "popup.html",
@@ -24,10 +24,9 @@
     "128": "images/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cv.kroete.io http://localhost:8000; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cv.kroete.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
   },
   "host_permissions": [
-    "https://cv.kroete.io/*",
-    "http://localhost:8000/*"
+    "https://cv.kroete.io/*"
   ]
 }
