@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, status, Header, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
@@ -61,6 +62,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Serve static assets (e.g., policy pages) from ./static at /static
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Correlation ID middleware for observability; adds X-Request-ID
 @app.middleware("http")
@@ -376,3 +380,20 @@ async def api_score_cv_match(
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+# --- Public Policy Pages (served strictly from static files) ---
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    static_path = Path(__file__).parent / "static" / "privacy.html"
+    if static_path.exists():
+        return FileResponse(str(static_path), media_type="text/html")
+    raise HTTPException(status_code=404, detail="privacy.html not found under /static")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_of_service():
+    static_path = Path(__file__).parent / "static" / "terms.html"
+    if static_path.exists():
+        return FileResponse(str(static_path), media_type="text/html")
+    raise HTTPException(status_code=404, detail="terms.html not found under /static")

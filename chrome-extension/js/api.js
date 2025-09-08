@@ -2,8 +2,8 @@
 // Keeps headers and endpoints consistent; Pico.css unaffected
 
 (function initAPI(global) {
-  // Default base URL (IP for now). Will switch to HTTPS domain later.
-  let API_BASE_URL = 'http://cv.kroete.io';
+  // Default production base URL (HTTPS for Chrome Web Store readiness)
+  let API_BASE_URL = 'https://cv.kroete.io';
   let LLM_PROVIDER = 'openai';
   let LLM_KEYS = {}; // { openai, deepseek, anthropic }
   let LLM_MODELS = {}; // per-provider model mapping

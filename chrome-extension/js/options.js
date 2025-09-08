@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Backend URL: prefer stored override, else default to current IP
   const localCfg = await new Promise((resolve) => chrome.storage.local.get(['apiBaseUrl', 'syncKeysOptIn'], resolve));
-  const API_BASE_URL = localCfg?.apiBaseUrl || 'http://cv.kroete.io';
+  const API_BASE_URL = localCfg?.apiBaseUrl || 'https://cv.kroete.io';
 
   function setStatus(msg, ok = true) {
     statusEl.textContent = msg;
