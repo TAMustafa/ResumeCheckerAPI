@@ -1,5 +1,10 @@
-:80 {
+{
+  email tareksnews@gmail.com
+}
+
+cv.kroete.io {
   encode zstd gzip
+
   reverse_proxy app:8000 {
     transport http {
       read_timeout 120s
@@ -7,6 +12,7 @@
       dial_timeout 10s
     }
   }
+
   header {
     X-Content-Type-Options "nosniff"
     X-Frame-Options "DENY"
