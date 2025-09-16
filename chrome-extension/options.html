@@ -11,7 +11,7 @@
     <header>
       <hgroup>
         <h1>Resume Checker Settings</h1>
-        <p class="muted">OpenAI is the only supported LLM for now. Configure your model and API key below.</p>
+        <p class="muted">OpenAI is used by default. Add your API key to enable analysis.</p>
       </hgroup>
     </header>
 
@@ -26,26 +26,13 @@
         <div class="grid">
           <div>
             <label>LLM Provider</label>
-            <input type="text" value="OpenAI" disabled />
-            <small class="muted">Only OpenAI is supported at this time.</small>
-          </div>
-          <div>
-            <label for="model">Model</label>
-            <input id="model" type="text" placeholder="e.g., gpt-4o, gpt-4.1-mini" />
-            <small class="muted">Defaults are applied if left blank.</small>
+            <input type="text" value="OpenAI (gpt-4o)" disabled />
+            <small class="muted">This is the recommended default.</small>
           </div>
         </div>
 
         <label for="apiKey" class="mt-2">OpenAI API Key</label>
         <input id="apiKey" type="password" placeholder="sk-..." />
-
-        <label for="syncOptIn" class="mt-2">Key Sync</label>
-        <div class="stack">
-          <label>
-            <input id="syncOptIn" type="checkbox" />
-            Sync my API key across devices (not recommended). Default is local-only storage.
-          </label>
-        </div>
 
         <div class="actions mt-2">
           <button id="saveBtn" class="primary">Save</button>

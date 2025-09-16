@@ -58,8 +58,6 @@ Return a valid, strictly-typed JSON object with these keys (return exactly and o
 - soft_skills_explanation: str
 - experience_score: int (0-100)
 - experience_explanation: str
-- qualifications_score: int (0-100)
-- qualifications_explanation: str
 - key_responsibilities_score: int (0-100)
 - key_responsibilities_explanation: str
 - improvement_suggestions: [ ... ]

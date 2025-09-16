@@ -57,8 +57,6 @@ class MatchingScore(BaseModel):
     soft_skills_explanation: str
     experience_score: int = Field(..., ge=0, le=100)
     experience_explanation: str
-    qualifications_score: int = Field(..., ge=0, le=100)
-    qualifications_explanation: str
     key_responsibilities_score: int = Field(..., ge=0, le=100)
     key_responsibilities_explanation: str
     improvement_suggestions: List[str] = Field(default_factory=list)

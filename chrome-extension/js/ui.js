@@ -60,9 +60,7 @@
     const soft = safeArray(ki.soft_skills);
     if (soft.length) sections.push(renderChipsSection('Soft Skills', soft));
 
-    // Education and certifications
-    const education = safeArray(ki.education);
-    if (education.length) sections.push(renderListSection('Education', education));
+    // Certifications (Education removed as per product decision)
     const certs = safeArray(ki.certifications);
     if (certs.length) sections.push(renderListSection('Certifications', certs));
 

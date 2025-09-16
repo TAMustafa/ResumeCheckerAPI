@@ -48,7 +48,8 @@ if _allowed_env:
     ALLOWED_ORIGINS = [o.strip() for o in _allowed_env.split(",") if o.strip()]
 else:
     ALLOWED_ORIGINS = [
-        "http://cv.kroete.io",  # Server origin (HTTP for now)
+        "https://cv.kroete.io",  # Production origin (HTTPS)
+        "http://cv.kroete.io",   # Legacy/redirect support
         "http://localhost:8000",  # Dev local
     ]
     _ext_id = os.getenv("CHROME_EXTENSION_ID", "").strip()
@@ -95,22 +96,42 @@ async def api_analyze_job_vacancy(
     x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
 ):
     try:
+        # Input validation
+        if not req.vacancy_text or not req.vacancy_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Vacancy text cannot be empty"
+            )
+        
+        # Limit input size to prevent abuse
+        if len(req.vacancy_text) > 50000:  # ~50KB limit
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Vacancy text too large. Maximum 50,000 characters allowed."
+            )
+        
         logfire.info("/analyze-job-vacancy request", extra={
             "request_id": getattr(locals().get('req', None), 'request_id', None) or getattr(locals().get('request', None), 'state', None) and getattr(locals().get('request').state, 'request_id', None),
             "provider": (x_llm_provider or "openai").lower() if x_llm_provider is not None else "openai",
             "model": x_llm_model or "gpt-4o",
+            "text_length": len(req.vacancy_text)
         })
+        
         if REQUIRE_USER_API_KEY and not x_openai_key:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-OpenAI-Key is required")
         provider = (x_llm_provider or "openai").lower()
         if provider != "openai":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"LLM provider '{provider}' not supported yet")
+        
         # Support both async and sync agent implementations (tests monkeypatch a sync fn)
-        res = agents.analyze_job_vacancy(req.vacancy_text, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        res = agents.analyze_job_vacancy(req.vacancy_text.strip(), api_key=x_openai_key, provider=provider, model=x_llm_model)
         result = await res if inspect.isawaitable(res) else res
         return result.model_dump()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logfire.error(f"Unexpected error in analyze_job_vacancy: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during job analysis")
 
 @app.post("/analyze-cv")
 async def api_analyze_cv(
@@ -119,6 +140,7 @@ async def api_analyze_cv(
     x_openai_key: str | None = Header(default=None, alias="X-OpenAI-Key"),
     x_llm_provider: str | None = Header(default=None, alias="X-LLM-Provider"),
     x_llm_model: str | None = Header(default=None, alias="X-LLM-Model"),
+    x_job_context: str | None = Header(default=None, alias="X-Job-Context"),
 ):
     try:
         if REQUIRE_USER_API_KEY and not x_openai_key:
@@ -163,8 +185,8 @@ async def api_analyze_cv(
                 detail="Upload failed: file missing after write"
             )
         
-        # Analyze the CV (support sync/async monkeypatches)
-        res = agents.analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model)
+        # Analyze the CV with job context if provided (support sync/async monkeypatches)
+        res = agents.analyze_cv(file_path, api_key=x_openai_key, provider=provider, model=x_llm_model, job_context=x_job_context)
         result = await res if inspect.isawaitable(res) else res
 
         # Delete immediately unless retention is enabled
@@ -233,14 +255,6 @@ async def api_score_cv_match(
             if not responsibilities and isinstance(jr.get("requirements"), list):
                 responsibilities = list(jr.get("requirements") or [])
 
-            qualifications = list(jr.get("qualifications", []) or [])
-            # Map certifications/education into qualifications if qualifications is empty
-            if not qualifications:
-                qualifications = list(jr.get("certifications", []) or [])
-            education = jr.get("education")
-            if not qualifications and isinstance(education, list):
-                qualifications = list(education)
-
             languages = list(jr.get("languages", []) or [])
             if not languages:
                 # Sometimes under 'language_requirements'
@@ -259,7 +273,6 @@ async def api_score_cv_match(
                     "type": (jr.get("experience") or {}).get("type"),
                     "leadership": (jr.get("experience") or {}).get("leadership"),
                 },
-                "qualifications": qualifications,
                 "responsibilities": responsibilities,
                 "languages": languages,
                 "seniority_level": jr.get("seniority_level"),
@@ -331,7 +344,6 @@ async def api_score_cv_match(
                 int(data.get("technical_skills_score", 0) or 0),
                 int(data.get("soft_skills_score", 0) or 0),
                 int(data.get("experience_score", 0) or 0),
-                int(data.get("qualifications_score", 0) or 0),
                 int(data.get("key_responsibilities_score", 0) or 0),
             ]
             if data.get("overall_match_score", 0) == 0 and any(c > 0 for c in comps):
@@ -354,14 +366,12 @@ async def api_score_cv_match(
 
             tech_overlap = sorted(_norm_set(cv.key_information.technical_skills) & _norm_set(job.required_skills.technical))
             soft_overlap = sorted(_norm_set(cv.key_information.soft_skills) & _norm_set(job.required_skills.soft))
-            qual_overlap = sorted(_norm_set(cv.key_information.certifications) & _norm_set(job.qualifications))
             lang_overlap = sorted(_norm_set(cv.key_information.languages) & _norm_set(job.languages))
             resp_overlap = sorted(_norm_set(cv.key_information.responsibilities) & _norm_set(job.responsibilities))
 
             overlaps = []
             overlaps.extend([s.title() for s in tech_overlap])
             overlaps.extend([s.title() for s in soft_overlap])
-            overlaps.extend([s.title() for s in qual_overlap])
             overlaps.extend([s.title() for s in lang_overlap])
             overlaps.extend([s for s in resp_overlap])
 

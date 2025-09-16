@@ -42,8 +42,10 @@ const gapsList = document.getElementById('gaps-list');
 const suggestionsList = document.getElementById('suggestions-list');
 // Per-category explanations
 const techExplanation = document.getElementById('tech-explanation');
+const softExplanation = document.getElementById('soft-explanation');
 const expExplanation = document.getElementById('exp-explanation');
 const qualExplanation = document.getElementById('qual-explanation');
+const respExplanation = document.getElementById('resp-explanation');
 
 // New DOM elements for individual analysis
 const analyzeJobBtn = document.getElementById('analyze-job-btn');
@@ -57,10 +59,12 @@ async function loadConfig() { return API.loadConfig(); }
 // Progress elements
 const techSkillsProgress = document.getElementById('tech-skills-progress');
 const experienceProgress = document.getElementById('experience-progress');
-const qualificationsProgress = document.getElementById('qualifications-progress');
 const techSkillsText = document.getElementById('tech-skills-text');
+const softSkillsProgress = document.getElementById('soft-skills-progress');
+const softSkillsText = document.getElementById('soft-skills-text');
 const experienceText = document.getElementById('experience-text');
-const qualificationsText = document.getElementById('qualifications-text');
+const responsibilitiesProgress = document.getElementById('responsibilities-progress');
+const responsibilitiesText = document.getElementById('responsibilities-text');
 
 // State
 let cvFile = null;
@@ -84,19 +88,39 @@ jobDescription.addEventListener('input', () => { jobRequirements = null; });
 analyzeJobBtn.addEventListener('click', async () => {
   const desc = jobDescription.value.trim();
   jobAnalysisSummary.innerHTML = '';
+  
+  // Input validation
   if (!desc) {
-    jobAnalysisSummary.textContent = 'Please enter a job description.';
+    jobAnalysisSummary.innerHTML = '<p class="error">Please enter a job description.</p>';
     return;
   }
+  
+  if (desc.length < 50) {
+    jobAnalysisSummary.innerHTML = '<p class="error">Job description seems too short. Please provide more details.</p>';
+    return;
+  }
+  
+  if (desc.length > 50000) {
+    jobAnalysisSummary.innerHTML = '<p class="error">Job description is too long. Please keep it under 50,000 characters.</p>';
+    return;
+  }
+  
   analyzeJobBtn.disabled = true;
-  jobAnalysisSummary.textContent = 'Analyzing...';
+  jobAnalysisSummary.innerHTML = '<p>Analyzing job description... <span class="loading-dots"></span></p>';
+  
   try {
     const result = await analyzeJobDescription(desc);
     jobRequirements = result; // cache analyzed job requirements
     jobAnalysisSummary.innerHTML = renderJobAnalysisSummary(result);
     validateForm();
   } catch (e) {
-    jobAnalysisSummary.textContent = 'Error analyzing job description.';
+    console.error('Job analysis error:', e);
+    const errorMsg = e.message?.includes('too large') 
+      ? 'Job description is too large. Please shorten it and try again.'
+      : e.message?.includes('Failed to fetch')
+      ? 'Could not connect to the analysis service. Please check your internet connection.'
+      : 'Error analyzing job description. Please try again.';
+    jobAnalysisSummary.innerHTML = `<p class="error">${errorMsg}</p>`;
   }
   analyzeJobBtn.disabled = false;
 });
@@ -162,14 +186,20 @@ function handleFileUpload(event) {
 async function autoAnalyzeCv() {
   if (!cvFile) return;
   cvAnalysisSummary.innerHTML = '';
-  cvAnalysisSummary.textContent = 'Analyzing...';
+  cvAnalysisSummary.innerHTML = '<p>Analyzing CV... <span class="loading-dots"></span></p>';
   try {
-    const result = await analyzeCV(cvFile);
+    // Pass job description as context for more targeted CV analysis
+    const jobContext = jobDescription.value.trim() || null;
+    const result = await analyzeCV(cvFile, DEBUG, jobContext);
     lastCvAnalysis = result;
     cvAnalysisSummary.innerHTML = renderCvAnalysisSummary(result);
     validateForm();
   } catch (e) {
-    cvAnalysisSummary.textContent = 'Error analyzing CV.';
+    console.error('CV analysis error:', e);
+    const errorMsg = e.message?.includes('Failed to fetch')
+      ? 'Could not connect to the analysis service. Please check your internet connection.'
+      : 'Error analyzing CV. Please try again.';
+    cvAnalysisSummary.innerHTML = `<p class="error">${errorMsg}</p>`;
   }
 }
 
@@ -238,19 +268,27 @@ function resetResults() {
   overallExplanation.textContent = '';
   
   // Reset progress bars
-  [techSkillsProgress, experienceProgress, qualificationsProgress].forEach(p => p.value = 0);
+  [techSkillsProgress, softSkillsProgress, experienceProgress, responsibilitiesProgress].forEach(p => p && (p.value = 0));
   
   techSkillsText.textContent = '0%';
+  if (softSkillsText) softSkillsText.textContent = '0%';
   experienceText.textContent = '0%';
-  qualificationsText.textContent = '0%';
+  // no qualifications text anymore
+  if (responsibilitiesText) responsibilitiesText.textContent = '0%';
   
   // Clear previous lists/chips
   if (strengthsList) strengthsList.innerHTML = '';
   if (gapsList) gapsList.innerHTML = '';
   if (suggestionsList) suggestionsList.innerHTML = '';
   if (techExplanation) techExplanation.textContent = '';
+  if (softExplanation) softExplanation.textContent = '';
   if (expExplanation) expExplanation.textContent = '';
-  if (qualExplanation) qualExplanation.textContent = '';
+  // no qualifications explanation anymore
+  if (respExplanation) respExplanation.textContent = '';
+
+  // Hide optional sections/titles initially
+  hideElementById('strengths-gaps', true);
+  hideElementById('suggestions', true);
 }
 
 // clearAll() was unused and has been removed
@@ -273,7 +311,8 @@ async function analyzeDocuments() {
 
     // Step 2: Analyze CV if not already done
     if (!lastCvAnalysis) {
-      cvAnalysis = await analyzeCV(cvFile);
+      const jobContext = jobDescription.value.trim() || null;
+      cvAnalysis = await analyzeCV(cvFile, DEBUG, jobContext);
       lastCvAnalysis = cvAnalysis; // Save for later use
     }
 
@@ -322,36 +361,78 @@ function updateResultsUI(score, cvAnalysis) {
   
   // Update progress bars
   updateProgressBar(techSkillsProgress, score.technical_skills_score);
+  updateProgressBar(softSkillsProgress, score.soft_skills_score);
   updateProgressBar(experienceProgress, score.experience_score);
-  updateProgressBar(qualificationsProgress, score.qualifications_score);
+  updateProgressBar(responsibilitiesProgress, score.key_responsibilities_score);
   
   // Update score texts
   techSkillsText.textContent = `${score.technical_skills_score ?? 0}%`;
+  if (softSkillsText) softSkillsText.textContent = `${score.soft_skills_score ?? 0}%`;
   experienceText.textContent = `${score.experience_score ?? 0}%`;
-  qualificationsText.textContent = `${score.qualifications_score ?? 0}%`;
+  // no qualifications text anymore
+  if (responsibilitiesText) responsibilitiesText.textContent = `${score.key_responsibilities_score ?? 0}%`;
 
   // No summary-div to avoid duplication; chips and lists below present details
 
   // Populate enhanced sections using helpers (keeps Pico.css unaffected)
   if (typeof UI !== 'undefined') {
     // Strengths & gaps (prefer backend scoring if available; fallback to CV analysis)
-    if (strengthsList) UI.setList(strengthsList, UI.safeArray(score.strengths?.length ? score.strengths : (cvAnalysis?.candidate_suitability?.strengths || [])));
-    if (gapsList) UI.setList(gapsList, UI.safeArray(score.gaps?.length ? score.gaps : (cvAnalysis?.candidate_suitability?.gaps || [])));
+    const strengths = UI.safeArray(score.strengths?.length ? score.strengths : (cvAnalysis?.candidate_suitability?.strengths || []));
+    const gaps = UI.safeArray(score.gaps?.length ? score.gaps : (cvAnalysis?.candidate_suitability?.gaps || []));
+    if (strengthsList) UI.setList(strengthsList, strengths);
+    if (gapsList) UI.setList(gapsList, gaps);
+
+    // Hide Strengths & Gaps section if both empty
+    const hasStrengthsOrGaps = (strengths && strengths.length) || (gaps && gaps.length);
+    hideElementById('strengths-gaps', !hasStrengthsOrGaps);
 
     // Removed Matches & Misses chips rendering
 
-    // Suggestions list: only use improvement_suggestions to avoid duplicating "gaps"
-    const uniqueSuggestions = Array.from(new Set(
-      Array.isArray(score.improvement_suggestions) ? score.improvement_suggestions : []
-    ));
+    // Suggestions list: use improvement_suggestions from schema
+    const uniqueSuggestions = Array.from(new Set(Array.isArray(score.improvement_suggestions) ? score.improvement_suggestions : []));
     UI.setList(suggestionsList, uniqueSuggestions);
+    hideElementById('suggestions', !(uniqueSuggestions && uniqueSuggestions.length));
 
     // Per-category explanations if provided by backend
     // Try multiple common keys for robustness
-    if (techExplanation) techExplanation.textContent = score.technical_skills_explanation || score.technical_explanation || '';
+    if (techExplanation) techExplanation.textContent = score.technical_skills_explanation || '';
+    if (softExplanation) softExplanation.textContent = score.soft_skills_explanation || '';
     if (expExplanation) expExplanation.textContent = score.experience_explanation || '';
-    if (qualExplanation) qualExplanation.textContent = score.qualifications_explanation || score.education_explanation || '';
+    // no qualifications explanation anymore
+    if (respExplanation) respExplanation.textContent = score.key_responsibilities_explanation || '';
+
+    // Hide empty explanation blocks and the container if all empty
+    const techHas = !!(techExplanation && techExplanation.textContent.trim());
+    const softHas = !!(softExplanation && softExplanation.textContent.trim());
+    const expHas = !!(expExplanation && expExplanation.textContent.trim());
+    const qualHas = false; // removed qualifications
+    const respHas = !!(respExplanation && respExplanation.textContent.trim());
+
+    toggleExplanationVisibility('tech-explanation', techHas);
+    toggleExplanationVisibility('soft-explanation', softHas);
+    toggleExplanationVisibility('exp-explanation', expHas);
+    // qualifications explanation removed
+    toggleExplanationVisibility('resp-explanation', respHas);
+
+    const explanationsContainer = document.getElementById('category-explanations');
+    if (explanationsContainer) explanationsContainer.style.display = (techHas || softHas || expHas || qualHas || respHas) ? '' : 'none';
   }
+}
+
+// Utility: hide an element by id when condition is true
+function hideElementById(id, hide) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = hide ? 'none' : '';
+}
+
+// Utility: hide the parent card/row of an explanation paragraph when empty
+function toggleExplanationVisibility(id, hasContent) {
+  const p = document.getElementById(id);
+  if (!p) return;
+  const container = p.closest('div');
+  if (!container) return;
+  container.style.display = hasContent ? '' : 'none';
 }
 
 // Helper function to update a progress bar

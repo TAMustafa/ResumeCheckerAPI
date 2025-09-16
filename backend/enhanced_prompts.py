@@ -128,7 +128,6 @@ Extract job requirements with balanced analysis of:
 KEY AREAS:
 - Technical skills relevant to the role
 - Professional experience and industry knowledge  
-- Educational qualifications and certifications
 - Soft skills and interpersonal abilities
 - Leadership and management capabilities
 
@@ -243,17 +242,12 @@ EXPERIENCE SCORING (30% weight):
 - Architecture and design leadership
 - Technical problem-solving examples
 
-QUALIFICATIONS SCORING (10% weight):
-- CS degree or equivalent technical education
-- Relevant certifications and continued learning
-- Technical contributions (open source, papers, patents)
-
 RESPONSIBILITIES ALIGNMENT (10% weight):
 - Match between past roles and job requirements
 - Technical leadership and mentoring experience
 - Cross-functional collaboration history
 
-SOFT SKILLS SCORING (10% weight):
+SOFT SKILLS SCORING (20% weight):
 - Technical communication and documentation
 - Collaboration and teamwork in technical contexts
 - Adaptability to new technologies and practices
@@ -275,18 +269,13 @@ ANALYTICAL EXPERIENCE (30% weight):
 - Research methodology and experimental rigor
 - Domain expertise and industry knowledge
 
-BUSINESS IMPACT (20% weight):
+BUSINESS IMPACT (25% weight):
 - Stakeholder communication and influence
 - Data-driven decision making facilitation
 - Revenue/cost impact demonstration
 - Strategic thinking and business acumen
 
-QUALIFICATIONS (10% weight):
-- Advanced degree in quantitative field
-- Relevant certifications and continued learning
-- Publications, research, or technical contributions
-
-COLLABORATION (5% weight):
+COLLABORATION (10% weight):
 - Cross-functional teamwork effectiveness
 - Technical presentation and storytelling ability
 
@@ -295,20 +284,15 @@ Focus on quantitative achievements and measurable business impact.""",
         JobCategory.DEFAULT: """
 Score this candidate using balanced evaluation criteria:
 
-SKILLS ALIGNMENT (30% total):
-- Technical skills: 15% - depth and relevance to requirements
+SKILLS ALIGNMENT (35% total):
+- Technical skills: 20% - depth and relevance to requirements
 - Soft skills: 15% - communication, teamwork, problem-solving
 
-EXPERIENCE MATCH (40% total):
-- Years and relevance: 20% - quantity and quality of experience
+EXPERIENCE MATCH (45% total):
+- Years and relevance: 25% - quantity and quality of experience
 - Responsibility level: 20% - leadership and ownership demonstrated
 
-QUALIFICATIONS (15% total):
-- Educational background and certifications
-- Industry-specific knowledge and training
-- Professional development and continuous learning
-
-ROLE RESPONSIBILITIES (15% total):
+ROLE RESPONSIBILITIES (20% total):
 - Past role alignment with job requirements
 - Achievement and impact demonstration  
 - Growth trajectory and career progression

@@ -1,45 +1,25 @@
 // Global API helper for backend communication
 // Keeps headers and endpoints consistent; Pico.css unaffected
 
+
 (function initAPI(global) {
   // Default production base URL (HTTPS for Chrome Web Store readiness)
   let API_BASE_URL = 'https://cv.kroete.io';
-  let LLM_PROVIDER = 'openai';
-  let LLM_KEYS = {}; // { openai, deepseek, anthropic }
-  let LLM_MODELS = {}; // per-provider model mapping
-  let LLM_MODEL = 'gpt-4o';
+  const LLM_PROVIDER = 'openai';
+  const LLM_MODEL = 'gpt-4o'; // Recommended default
+  let OPENAI_KEY = '';
 
   async function loadConfig() {
-    // Prefer local storage for sensitive keys; optionally merge from sync if user opted in
     const local = await new Promise((resolve) => {
-      chrome.storage.local.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey', 'apiBaseUrl', 'syncKeysOptIn'], resolve);
+      chrome.storage.local.get(['openaiKey', 'apiBaseUrl'], resolve);
     });
-    const syncOptIn = !!local?.syncKeysOptIn;
-    let sync = {};
-    if (syncOptIn) {
-      sync = await new Promise((resolve) => {
-        chrome.storage.sync.get(['llmProvider', 'llmKeys', 'llmModels', 'openaiKey'], resolve);
-      });
-    }
-
-    // Base URL: allow override via storage, else default to IP
     API_BASE_URL = local?.apiBaseUrl || API_BASE_URL;
-
-    // Force OpenAI as provider for now
-    LLM_PROVIDER = 'openai';
-    // Merge precedence: local first, then sync fallback
-    LLM_KEYS = (local?.llmKeys) || (sync?.llmKeys) || {};
-    if (!LLM_KEYS.openai && (local?.openaiKey || sync?.openaiKey)) {
-      LLM_KEYS.openai = local?.openaiKey || sync?.openaiKey || '';
-    }
-    LLM_MODELS = (local?.llmModels) || (sync?.llmModels) || {};
-    LLM_MODEL = LLM_MODELS[LLM_PROVIDER] || 'gpt-4o';
-
+    OPENAI_KEY = local?.openaiKey || '';
     return { provider: LLM_PROVIDER, model: LLM_MODEL, baseUrl: API_BASE_URL };
   }
 
   function ensureKey() {
-    const key = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
+    const key = OPENAI_KEY || '';
     if (!key || key.trim().length === 0) {
       alert('Please set your LLM API key in the extension Options first.');
       if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
@@ -51,9 +31,8 @@
     const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
     const headers = new Headers(options.headers || {});
     headers.set('X-LLM-Provider', LLM_PROVIDER);
-    if (LLM_MODEL) headers.set('X-LLM-Model', LLM_MODEL);
-    const keyForProvider = (LLM_KEYS && LLM_KEYS[LLM_PROVIDER]) || '';
-    if (keyForProvider) headers.set('X-OpenAI-Key', keyForProvider);
+    headers.set('X-LLM-Model', LLM_MODEL);
+    if (OPENAI_KEY) headers.set('X-OpenAI-Key', OPENAI_KEY);
     return fetch(url, { ...options, headers });
   }
 
@@ -73,7 +52,7 @@
     return await response.json();
   }
 
-  async function analyzeCV(file, DEBUG = false) {
+  async function analyzeCV(file, DEBUG = false, jobContext = null) {
     ensureKey();
     const formData = new FormData();
     if (file) {
@@ -83,9 +62,15 @@
       throw new Error('No file provided');
     }
 
+    const headers = { 'Accept': 'application/json' };
+    // Add job context for more targeted CV analysis
+    if (jobContext && typeof jobContext === 'string' && jobContext.trim()) {
+      headers['X-Job-Context'] = jobContext.trim().substring(0, 10000); // Limit context size
+    }
+
     const response = await apiFetch(`/analyze-cv`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json' },
+      headers,
       body: formData
     });
     if (!response.ok) {
@@ -108,11 +93,5 @@
 
   // Removed server-side CV listing/deletion to avoid retention
 
-  global.API = {
-    loadConfig,
-    analyzeJobDescription,
-    analyzeCV,
-    getMatchingScore,
-    getBaseUrl: () => API_BASE_URL,
-  };
+  global.API = { loadConfig, analyzeJobDescription, analyzeCV, getMatchingScore, getBaseUrl: () => API_BASE_URL };
 })(window);

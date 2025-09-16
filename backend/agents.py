@@ -57,7 +57,7 @@ Notes:
 """
 
 # Bump this when changing prompts/model settings to invalidate caches safely
-AGENT_VERSION = "v3"
+AGENT_VERSION = "v4"
 
 # Base/default model settings used for all tasks
 _DEFAULT_MODEL_SETTINGS = {
@@ -123,31 +123,34 @@ async def _run_with_retries(run_coro_factory, timeout: float, *, attempts: int =
 # --- Core Functions ---
 async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None, provider: str | None = None, model: str | None = None) -> JobRequirements:
     """
-    Extract requirements from job vacancy text
+    Extract requirements from job vacancy text with performance monitoring
     """
+    import time
+    start_time = time.time()
+    
     try:
         # Cache key includes inputs + model/provider + version for correctness across config changes
         base = hashlib.sha256(vacancy_text.encode("utf-8")).hexdigest()
         provider_norm = (provider or 'openai').lower()
         model_norm = (model or '').strip() or 'gpt-4o'
-        use_enhanced = os.getenv("USE_ENHANCED_PROMPTS", "false").lower() in {"1", "true", "yes"}
-        enh_flag = "enh1" if use_enhanced else "plain"
+        enh_flag = "enh1"  # always use enhanced prompts
         key = f"vacancy:{AGENT_VERSION}:{enh_flag}:{provider_norm}:{model_norm}:{base}"
         cached = await shared_cache.get(key)
         if cached is not None:
-            logfire.info("analyze_job_vacancy cache hit", extra={"key": key, "provider": provider_norm, "model": model_norm})
+            duration = time.time() - start_time
+            logfire.info("analyze_job_vacancy cache hit", extra={
+                "key": key, "provider": provider_norm, "model": model_norm, 
+                "duration_ms": round(duration * 1000, 2)
+            })
             return JobRequirements(**cached)
 
         async def _compute():
             async with _ApiKeyContext(api_key):
                 model_id = _model_string((provider or 'openai').lower(), (model or '').strip() or 'gpt-4o')
-                # Use enhanced system prompt optionally (no change by default)
-                if use_enhanced:
-                    system_prompt = enhanced_prompts.get_job_analysis_prompt(vacancy_text)
-                    settings = _DEFAULT_MODEL_SETTINGS
-                    agent = Agent(model_id, output_type=JobRequirements, system_prompt=system_prompt, model_settings=settings)
-                else:
-                    agent = _get_agent('job', provider, model)
+                # Always use enhanced system prompt for job analysis
+                system_prompt = enhanced_prompts.get_job_analysis_prompt(vacancy_text)
+                settings = _DEFAULT_MODEL_SETTINGS
+                agent = Agent(model_id, output_type=JobRequirements, system_prompt=system_prompt, model_settings=settings)
                 logfire.info("analyze_job_vacancy calling LLM", extra={"model_id": model_id, "task": "job"})
                 result = await _run_with_retries(
                     lambda: agent.run(
@@ -157,6 +160,12 @@ async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None, pro
                 )
             # store a plain dict in cache
             await shared_cache.set(key, result.output.model_dump())
+            duration = time.time() - start_time
+            logfire.info("analyze_job_vacancy completed", extra={
+                "provider": provider_norm, "model": model_norm,
+                "duration_ms": round(duration * 1000, 2),
+                "text_length": len(vacancy_text)
+            })
             return result.output
 
         return await _compute()
@@ -169,7 +178,7 @@ async def analyze_job_vacancy(vacancy_text: str, api_key: str | None = None, pro
         logfire.error(f"Unexpected error in analyze_job_vacancy: {e}")
         raise
 
-async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str | None = None, model: str | None = None) -> CVAnalysis:
+async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str | None = None, model: str | None = None, job_context: str | None = None) -> CVAnalysis:
     """
     Analyze CV and extract key information
     """
@@ -177,10 +186,13 @@ async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str |
         data = pdf_path.read_bytes()
         provider_norm = (provider or 'openai').lower()
         model_norm = (model or '').strip() or 'gpt-4o'
-        key = "cv:{}:{}:{}:".format(
+        # Include job context in cache key for context-aware analysis
+        context_hash = hashlib.sha256((job_context or "").encode("utf-8")).hexdigest()[:8]
+        key = "cv:{}:{}:{}:{}:".format(
             AGENT_VERSION,
             provider_norm,
             model_norm,
+            context_hash
         ) + hashlib.sha256(data).hexdigest()
         cached = await shared_cache.get(key)
         if cached is not None:
@@ -189,14 +201,11 @@ async def analyze_cv(pdf_path: Path, api_key: str | None = None, provider: str |
 
         async def _compute():
             async with _ApiKeyContext(api_key):
-                use_enhanced = os.getenv("USE_ENHANCED_PROMPTS", "false").lower() in {"1", "true", "yes"}
                 model_id = _model_string((provider or 'openai').lower(), (model or '').strip() or 'gpt-4o')
-                if use_enhanced:
-                    system_prompt = enhanced_prompts.get_cv_analysis_prompt()
-                    settings = _DEFAULT_MODEL_SETTINGS
-                    agent = Agent(model_id, output_type=CVAnalysis, system_prompt=system_prompt, model_settings=settings)
-                else:
-                    agent = _get_agent('cv', provider, model)
+                # Always use enhanced CV analysis prompt (with optional job_context)
+                system_prompt = enhanced_prompts.get_cv_analysis_prompt(job_context)
+                settings = _DEFAULT_MODEL_SETTINGS
+                agent = Agent(model_id, output_type=CVAnalysis, system_prompt=system_prompt, model_settings=settings)
                 logfire.info("analyze_cv calling LLM", extra={"model_id": model_id, "task": "cv"})
                 result = await _run_with_retries(
                     lambda: agent.run([
@@ -240,24 +249,16 @@ async def score_cv_match(cv_analysis: CVAnalysis, job_requirements: JobRequireme
 
         async def _compute():
             async with _ApiKeyContext(api_key):
-                agent = _get_agent('score', provider, model)
                 model_id = _model_string((provider or 'openai').lower(), (model or '').strip() or 'gpt-4o')
+                # Always use enhanced scoring prompt (derive category from job content)
+                job_text_for_prompt = json.dumps(job_requirements.model_dump(), sort_keys=True)
+                system_prompt = enhanced_prompts.get_scoring_prompt(job_text_for_prompt)
+                settings = _DEFAULT_MODEL_SETTINGS
+                agent = Agent(model_id, output_type=MatchingScore, system_prompt=system_prompt, model_settings=settings)
                 logfire.info("score_cv_match calling LLM", extra={"model_id": model_id, "task": "score"})
                 result = await _run_with_retries(
                     lambda: agent.run(
                         (
-                            "You are an expert recruiter. Calculate a rigorous, evidence-based matching score strictly based on INTERSECTIONS between the CV and the Job Requirements.\n"
-                            "Do NOT infer skills or experience not present in both.\n\n"
-                            "Instructions:\n"
-                            "1) Identify overlapping items between CV.key_information and Job.required_skills/responsibilities/qualifications/languages.\n"
-                            "2) Score each category [technical_skills, soft_skills, experience, qualifications, key_responsibilities] from 0-100 using only overlaps.\n"
-                            "   - Technical/Soft skills: proportion of required skills present in CV (consider exact or clearly equivalent phrasing only).\n"
-                            "   - Experience: compare years explicitly stated in CV vs required minimum years.\n"
-                            "   - Qualifications: overlap between certifications/qualifications.\n"
-                            "   - Responsibilities: overlap between responsibilities.\n"
-                            "3) Provide concise explanations referencing the overlaps.\n"
-                            "4) Overall match is a balanced average of the above (no single category should dominate).\n"
-                            "5) Provide strengths as top overlapping items and gaps as most important missing required items.\n\n"
                             f"CV Analysis JSON: {json.dumps(cv_analysis.model_dump(), sort_keys=True)}\n\n"
                             f"Job Requirements JSON: {json.dumps(job_requirements.model_dump(), sort_keys=True)}"
                         )
