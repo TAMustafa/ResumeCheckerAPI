@@ -14,32 +14,41 @@
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p>Last updated: 2025-09-08</p>
+  <p>Last updated: 2025-09-17</p>
   <p>Resume Checker analyzes your CV and a job description to provide a structured analysis and a match score.</p>
+  <p>Your inputs (CV and job description) are transmitted over HTTPS to <strong>https://cv.kroete.io</strong> solely to perform the analysis and return results. We do not inject code into websites and we do not collect browsing data.</p>
 
   <h2>Data We Process</h2>
   <ul>
-    <li><strong>CV PDF</strong>: Uploaded solely for analysis. The file is processed transiently and deleted immediately after analysis. We do not retain CVs on the server.</li>
-    <li><strong>Job description text</strong>: Sent for analysis and scoring.</li>
-    <li><strong>API key</strong>: Your OpenAI API key is stored locally in the browser extension and sent to the backend as a request header to perform analysis. It is not stored server-side.</li>
+    <li><strong>CV PDF</strong>: Provided by you and sent over HTTPS to <code>https://cv.kroete.io</code> solely for analysis. Processed transiently and deleted immediately after analysis. We do not retain CVs on the server.</li>
+    <li><strong>Job description text</strong>: Provided by you, sent over HTTPS for analysis and scoring; may include information you include in the text.</li>
+    <li><strong>API key</strong>: Your OpenAI API key is stored locally in the extension via <code>chrome.storage.local</code> and sent to the backend in a request header to complete the analysis. It is not stored server-side.</li>
+    <li><strong>Session cache</strong>: The extension may temporarily cache the selected CV file in <code>chrome.storage.session</code> during the current browser session to improve UX; this is cleared when the session ends.</li>
   </ul>
 
   <h2>How We Use Data</h2>
   <ul>
     <li>To generate structured CV and job analyses and compute a match score.</li>
-    <li>To return results to you; we do not sell data or share it with third parties.</li>
+    <li>No advertising or sale of data. We do not share data with third parties except necessary processors strictly to provide the service (e.g., your selected LLM provider when invoked via your API key).</li>
   </ul>
 
   <h2>Retention</h2>
   <ul>
     <li>CV PDFs are deleted immediately after analysis.</li>
-    <li>We do not store results or personal data beyond the request lifecycle. In-memory caches may hold non-sensitive derived data briefly to reduce cost/latency.</li>
+    <li>We do not store results or personal data beyond the request lifecycle. Minimal operational metadata (e.g., timestamps or status codes) may be retained for reliability and abuse prevention; no content is stored.</li>
   </ul>
 
   <h2>Security</h2>
   <ul>
-    <li>All production traffic is served over HTTPS.</li>
+    <li>All production traffic is encrypted in transit (HTTPS).</li>
+    <li>The extension’s Content Security Policy allows scripts from <code>'self'</code> only; no remote scripts or Wasm are executed.</li>
     <li>We recommend not including sensitive personal identifiers in CVs beyond what is necessary.</li>
+  </ul>
+
+  <h2>User Controls</h2>
+  <ul>
+    <li>You can view and remove your API key from the extension’s Options page at any time.</li>
+    <li>You can clear session data by closing the browser session or uninstalling the extension.</li>
   </ul>
 
   <h2>Contact</h2>
