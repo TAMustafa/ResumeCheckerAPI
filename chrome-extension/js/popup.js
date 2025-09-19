@@ -135,6 +135,36 @@ const experienceText = document.getElementById('experience-text');
 const responsibilitiesProgress = document.getElementById('responsibilities-progress');
 const responsibilitiesText = document.getElementById('responsibilities-text');
 
+// Small helper: Tailwind-native spinner with accessible label
+function renderSpinner(label = 'Analyzing...') {
+  // Centered, compact spinner row (always animates)
+  return `
+    <div class="w-full flex items-center justify-center my-2">
+      <span class="inline-flex items-center text-sm text-slate-600 dark:text-slate-300">
+        <svg class="animate-spin -ml-0.5 mr-2 h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true" role="img">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <span>${label}</span>
+      </span>
+    </div>
+  `;
+}
+
+// Alternative loader: three bouncing dots with label (always animates)
+function renderBouncingDots(label = 'Analyzing...') {
+  return `
+    <div class="w-full flex items-center justify-center my-2 text-sm text-slate-600 dark:text-slate-300">
+      <span class="mr-2">${label}</span>
+      <span class="flex items-center gap-1">
+        <span class="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style="animation-duration: 900ms;"></span>
+        <span class="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style="animation-duration: 900ms; animation-delay: 150ms;"></span>
+        <span class="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style="animation-duration: 900ms; animation-delay: 300ms;"></span>
+      </span>
+    </div>
+  `;
+}
+
 // State
 let cvFile = null;
 let jobRequirements = null;
@@ -175,7 +205,7 @@ analyzeJobBtn.addEventListener('click', async () => {
   }
   
   analyzeJobBtn.disabled = true;
-  jobAnalysisSummary.innerHTML = '<p>Analyzing job description... <span class="loading-dots"></span></p>';
+  jobAnalysisSummary.innerHTML = renderBouncingDots('Analyzing job description...');
   
   try {
     const result = await analyzeJobDescription(desc);
@@ -255,7 +285,7 @@ function handleFileUpload(event) {
 async function autoAnalyzeCv() {
   if (!cvFile) return;
   cvAnalysisSummary.innerHTML = '';
-  cvAnalysisSummary.innerHTML = '<p>Analyzing CV... <span class="loading-dots"></span></p>';
+  cvAnalysisSummary.innerHTML = renderBouncingDots('Analyzing CV...');
   try {
     // Pass job description as context for more targeted CV analysis
     const jobContext = jobDescription.value.trim() || null;
@@ -526,7 +556,7 @@ function setLoading(loading) {
   if (loading) {
     tabResultBtn.textContent = 'Analyzing...';
     tabResultBtn.classList.add('animate-pulse');
-    switchToTab(2); // move to Result view during analysis
+    // Do not switch to the Result tab during analysis to avoid showing the large score circle prematurely
   } else {
     tabResultBtn.textContent = 'Result';
     tabResultBtn.classList.remove('animate-pulse');
@@ -569,7 +599,7 @@ function renderJobAnalysisSummary(result) {
     
     return `
       <div class="section mb-4">
-        <h3 class="text-lg font-semibold mb-2 text-primary">${UI ? UI.escapeHtml?.(String(title)) ?? String(title) : String(title)}</h3>
+        <h3 class="text-lg font-semibold mb-2">${UI ? UI.escapeHtml?.(String(title)) ?? String(title) : String(title)}</h3>
         ${content}
       </div>
     `;
