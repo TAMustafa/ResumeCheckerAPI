@@ -52,6 +52,44 @@ If you later move to HTTPS, you will need to update the URLs to `https://cv.kroe
 - Analyze a job description and upload/select a CV
 - View the results and suggestions
 
+## UI Stack & Tailwind CSS
+
+This extension uses Tailwind CSS (built locally) for the UI. Pico and the old custom stylesheet have been removed.
+
+### Install dependencies
+
+From `chrome-extension/`:
+
+```
+npm install
+```
+
+### Build CSS (one-time or CI)
+
+```
+npm run build:css
+```
+
+This compiles `src/input.css` into `css/tailwind.css` using the Tailwind CLI and the provided `tailwind.config.js`.
+
+### Develop with watch
+
+```
+npm run watch:css
+```
+
+Reload the extension in `chrome://extensions` after changes.
+
+### Dark mode
+
+- Tailwind is configured with `darkMode: 'media'`, so the popup respects the OS appearance.
+- If you prefer a manual theme toggle, switch to `darkMode: 'class'` in `tailwind.config.js` and add a class toggler.
+
+### Animations
+
+- The match score counts up and the circular gauge animates smoothly.
+- Animations respect the user’s `prefers-reduced-motion` setting.
+
 ## Testing
 
 End-to-end tests live in the `e2e/` folder and use Playwright.
@@ -69,3 +107,9 @@ End-to-end tests live in the `e2e/` folder and use Playwright.
 - If you see connection errors, confirm the backend is reachable at `http://cv.kroete.io/healthz`
 - Ensure your DNS A/AAAA records point to the server
 - After changing `manifest.json`, reload the extension from `chrome://extensions`
+
+## Notes on CSP & External Resources
+
+- `manifest.json` uses a strict MV3 CSP for extension pages. Styles are built locally; no external CDNs are required for CSS.
+- `style-src` is limited to `'self' 'unsafe-inline'` (Tailwind is compiled locally into `css/tailwind.css`).
+- Network calls are permitted via `connect-src` to the configured backend.

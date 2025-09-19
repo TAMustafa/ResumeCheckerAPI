@@ -1,45 +1,40 @@
 <!doctype html>
-<html lang="en" data-theme="auto">
+<html lang="en" data-theme="auto" data-app="resume-checker">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Resume Checker • Settings</title>
-    <link rel="stylesheet" href="css/pico.min.css" />
-    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/tailwind.css" />
   </head>
-  <body class="container">
-    <header>
-      <hgroup>
-        <h1>Resume Checker Settings</h1>
-        <p class="muted">OpenAI is used by default. Add your API key to enable analysis.</p>
-      </hgroup>
+  <body class="w-[380px] min-w-[380px] max-w-[380px] max-h-[600px] overflow-x-hidden overflow-y-auto p-4 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-200">
+    <header class="mb-4">
+      <h1 class="text-xl font-semibold">Resume Checker Settings</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">OpenAI is used by default. Add your API key to enable analysis.</p>
     </header>
 
     <main>
       <article>
-        <p class="muted">
+        <p class="text-sm text-slate-500 dark:text-slate-400">
           Your job description and CV will be sent to our server and the configured LLM provider for analysis.
           By using this extension you agree to this processing. See our
           <a id="privacyLink" href="https://cv.kroete.io/privacy" target="_blank">Privacy Policy</a> and <a id="termsLink" href="https://cv.kroete.io/terms" target="_blank">Terms</a>.
         </p>
 
-        <div class="grid">
-          <div>
-            <label>LLM Provider</label>
-            <input type="text" value="OpenAI (gpt-4o)" disabled />
-            <small class="muted">This is the recommended default.</small>
-          </div>
+        <div class="mt-3">
+          <label class="block text-sm font-medium">LLM Provider</label>
+          <input type="text" value="OpenAI (gpt-4o)" disabled class="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm" />
+          <small class="block text-xs text-slate-500 dark:text-slate-400 mt-1">This is the recommended default.</small>
         </div>
 
-        <label for="apiKey" class="mt-2">OpenAI API Key</label>
-        <input id="apiKey" type="password" placeholder="sk-..." />
+        <label for="apiKey" class="mt-3 block text-sm font-medium">OpenAI API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-..." class="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" />
 
-        <div class="actions mt-2">
-          <button id="saveBtn" class="primary">Save</button>
-          <button id="testBtn" class="contrast">Test Connection</button>
-          <button id="removeBtn" class="secondary danger">Remove Key</button>
+        <div class="mt-3 flex gap-2 flex-wrap">
+          <button id="saveBtn" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-primary text-white hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary">Save</button>
+          <button id="testBtn" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary">Test Connection</button>
+          <button id="removeBtn" class="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-red-500 text-white hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500">Remove Key</button>
         </div>
-        <div id="status" class="status"></div>
+        <div id="status" class="mt-2 min-h-[1.25rem] text-sm"></div>
       </article>
     </main>
 

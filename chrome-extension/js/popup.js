@@ -11,12 +11,76 @@ const tabSections = [
   document.getElementById('section-result')
 ];
 
+function applyTabStyles(button, isActive) {
+  const activeClasses = ['text-primary', 'border-b-2', 'border-primary', 'font-semibold'];
+  const inactiveClasses = ['text-slate-500', 'dark:text-slate-400'];
+  if (isActive) {
+    button.classList.add(...activeClasses);
+    button.classList.remove(...inactiveClasses);
+  } else {
+    button.classList.remove(...activeClasses);
+    button.classList.add(...inactiveClasses);
+    // Ensure no border for inactive
+    button.classList.remove('border-b-2', 'border-primary');
+  }
+}
+
 function switchToTab(idx) {
   tabBtns.forEach((b, i) => {
-    b.classList.toggle('active', i === idx);
-    b.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-    tabSections[i].classList.toggle('active', i === idx);
+    const isActive = i === idx;
+    applyTabStyles(b, isActive);
+    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    // Show/hide sections using Tailwind classes
+    if (isActive) {
+      tabSections[i].classList.remove('hidden');
+      tabSections[i].classList.add('block');
+    } else {
+      tabSections[i].classList.add('hidden');
+      tabSections[i].classList.remove('block');
+    }
   });
+}
+
+function setCircleProgress(percent) {
+  const circle = document.querySelector('.score-circle');
+  if (!circle) return;
+  const p = Math.max(0, Math.min(100, Number(percent) || 0));
+  // Light neutral color for remaining portion
+  // slate-200 (#e5e7eb) works for light backgrounds; on dark, it's acceptable contrast inside the circle
+  circle.style.background = `conic-gradient(#1a73e8 0%, #1a73e8 ${p}%, #e5e7eb ${p}%, #e5e7eb 100%)`;
+}
+
+// Animate numeric value in an element from 'from' to 'to' over duration ms
+function animateNumber(el, from, to, duration = 600) {
+  if (!el) return;
+  if (PREFERS_REDUCED_MOTION || duration <= 0) {
+    el.textContent = `${Math.round(to)}%`;
+    return;
+  }
+  const start = performance.now();
+  const diff = to - from;
+  function step(ts) {
+    const t = Math.min(1, (ts - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out-cubic
+    const val = from + diff * eased;
+    el.textContent = `${Math.round(val)}%`;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Animate circle progress between two percentages
+function animateCircle(from, to, duration = 600) {
+  if (PREFERS_REDUCED_MOTION || duration <= 0) { setCircleProgress(to); return; }
+  const start = performance.now();
+  const diff = to - from;
+  function step(ts) {
+    const t = Math.min(1, (ts - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    setCircleProgress(from + diff * eased);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
 }
 
 tabJobBtn.addEventListener('click', () => switchToTab(0));
@@ -55,6 +119,11 @@ const cvAnalysisSummary = document.getElementById('cv-analysis-summary');
 let isAnalyzing = false;
 const DEBUG = false; // local debug flag
 async function loadConfig() { return API.loadConfig(); }
+
+// Reduced motion preference
+const PREFERS_REDUCED_MOTION = (() => {
+  try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+})();
 
 // Progress elements
 const techSkillsProgress = document.getElementById('tech-skills-progress');
@@ -264,7 +333,7 @@ jobDescription.addEventListener('input', resetResults);
 function resetResults() {
   resultsSection.classList.add('hidden');
   matchScore.textContent = '0%';
-  document.querySelector('.score-circle').style.setProperty('--progress', '0%');
+  setCircleProgress(0);
   overallExplanation.textContent = '';
   
   // Reset progress bars
@@ -353,11 +422,11 @@ function updateResultsUI(score, cvAnalysis) {
   // Update overall score
   // Ensure the score is a number and not hardcoded
   let overall = typeof score.overall_match_score === 'number' ? score.overall_match_score : 0;
-  matchScore.textContent = `${overall}%`;
+  const prevOverall = Number(matchScore.textContent?.replace('%','')) || 0;
+  animateNumber(matchScore, prevOverall, overall, 700);
   overallExplanation.textContent = score.overall_explanation ?? 'No explanation available.';
   // Update circular progress visualization
-  const circle = document.querySelector('.score-circle');
-  if (circle) circle.style.setProperty('--progress', `${overall}%`);
+  animateCircle(prevOverall, overall, 700);
   
   // Update progress bars
   updateProgressBar(techSkillsProgress, score.technical_skills_score);
@@ -456,9 +525,11 @@ function setLoading(loading) {
   // Update Result tab label to show progress
   if (loading) {
     tabResultBtn.textContent = 'Analyzing...';
+    tabResultBtn.classList.add('animate-pulse');
     switchToTab(2); // move to Result view during analysis
   } else {
     tabResultBtn.textContent = 'Result';
+    tabResultBtn.classList.remove('animate-pulse');
     validateForm();
   }
 }
@@ -475,32 +546,30 @@ function renderJobAnalysisSummary(result) {
     let content = '';
     if (Array.isArray(items)) {
       if (isBulletList) {
-        content = `<ul style="margin: 0.5rem 0 1rem 1.5rem; padding: 0;">
-          ${items.map(item => `<li style="margin-bottom: 0.5rem;">${item}</li>`).join('')}
+        content = `<ul class="list-disc pl-5 text-sm mt-1">
+          ${items.map(item => `<li class=\"mb-2\">${UI ? UI.escapeHtml?.(String(item)) ?? String(item) : String(item)}</li>`).join('')}
         </ul>`;
       } else {
-        content = `<div style="margin: 0.5rem 0 1rem 0; line-height: 1.6;">
-          ${items.join('. ')}
+        content = `<div class="text-sm leading-6 mt-1">
+          ${UI ? UI.escapeHtml?.(String(items)) ?? String(items) : String(items)}
         </div>`;
       }
     } else if (typeof items === 'object' && items !== null) {
-      content = '<ul style="margin: 0.5rem 0 1rem 1.5rem; padding: 0;">';
+      content = '<ul class="list-disc pl-5 text-sm mt-1">';
       for (const [key, value] of Object.entries(items)) {
         if (value !== null && value !== undefined && value !== '') {
           const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          content += `<li style="margin-bottom: 0.5rem;"><strong>${label}:</strong> ${value}</li>`;
+          content += `<li class=\"mb-2\"><strong>${UI ? UI.escapeHtml?.(label) ?? label : label}:</strong> ${UI ? UI.escapeHtml?.(String(value)) ?? String(value) : String(value)}</li>`;
         }
       }
       content += '</ul>';
     } else if (items) {
-      content = `<div style="margin: 0.5rem 0 1rem 0; line-height: 1.6;">${items}</div>`;
+      content = `<div class="text-sm leading-6 mt-1">${UI ? UI.escapeHtml?.(String(items)) ?? String(items) : String(items)}</div>`;
     }
     
     return `
-      <div class="section" style="margin-bottom: 1.5rem;">
-        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: var(--primary);">
-          ${title}
-        </h3>
+      <div class="section mb-4">
+        <h3 class="text-lg font-semibold mb-2 text-primary">${UI ? UI.escapeHtml?.(String(title)) ?? String(title) : String(title)}</h3>
         ${content}
       </div>
     `;
@@ -509,60 +578,59 @@ function renderJobAnalysisSummary(result) {
   // Job Title and Company
   if (result.job_title || result.company) {
     const title = [result.job_title, result.company].filter(Boolean).join(' at ');
-    html += `<h2 style="margin: 0 0 1rem 0; font-size: 1.4rem;">${title}</h2>`;
+    html += `<h2 class="text-lg font-semibold mb-3">${UI ? UI.escapeHtml?.(title) ?? title : title}</h2>`;
   }
 
-  // Job Description
+  // Job Description (paragraph)
   if (result.job_description) {
     html += renderSection('Job Description', result.job_description);
   }
 
-  // Requirements
+  // Requirements (bulleted)
   const requirements = result.requirements_list || result.requirements;
   if (Array.isArray(requirements) && requirements.length) {
     html += renderSection('Requirements', requirements, true);
   }
 
-  // Skills
+  // Skills (bulleted)
   if (Array.isArray(result.skills) && result.skills.length) {
     html += renderSection('Skills', result.skills, true);
   }
 
-  // Qualifications
+  // Qualifications (bulleted)
   if (Array.isArray(result.qualifications) && result.qualifications.length) {
     html += renderSection('Qualifications', result.qualifications, true);
   }
 
-  // Experience
+  // Experience (paragraph or object)
   if (result.experience) {
     html += renderSection('Experience', result.experience);
   }
 
-  // Responsibilities
+  // Responsibilities (bulleted)
   if (Array.isArray(result.responsibilities) && result.responsibilities.length) {
     html += renderSection('Responsibilities', result.responsibilities, true);
   }
 
-  // Languages
+  // Languages (bulleted for consistency)
   if (Array.isArray(result.languages) && result.languages.length) {
-    html += renderSection('Languages', result.languages, false);
+    html += renderSection('Languages', result.languages, true);
   }
 
-  // Certifications
+  // Certifications (bulleted)
   if (Array.isArray(result.certifications) && result.certifications.length) {
     html += renderSection('Certifications', result.certifications, true);
   }
 
-  // Additional sections
+  // Additional sections (paragraph style)
   const additionalSections = [
-    'location', 'employment_type', 'salary', 'benefits', 
+    'location', 'employment_type', 'salary', 'benefits',
     'company_overview', 'contact_information', 'application_instructions'
   ];
-  
   for (const section of additionalSections) {
     if (result[section]) {
-      const title = section.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      html += renderSection(title, result[section]);
+      const t = section.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      html += renderSection(t, result[section]);
     }
   }
 
@@ -592,14 +660,14 @@ function renderCvAnalysisSummary(result) {
     return `
       <div class="mt-2">
         <strong>${title}</strong>
-        <ul class="compact-list">${items.map(i => `<li>${UI ? UI.escapeHtml?.(String(i)) ?? String(i) : String(i)}</li>`).join('')}</ul>
+        <ul class="list-disc pl-5 text-sm">${items.map(i => `<li>${UI ? UI.escapeHtml?.(String(i)) ?? String(i) : String(i)}</li>`).join('')}</ul>
       </div>
     `;
   };
 
   return `
     <div class="cv-analysis">
-      <h3>CV Analysis Summary</h3>
+      <h3 class="text-lg font-semibold mb-2">CV Analysis Summary</h3>
       ${renderList('Strengths', strengths)}
       ${renderList('Gaps', gaps)}
       ${renderList('Tailoring Recommendations', tailoring)}

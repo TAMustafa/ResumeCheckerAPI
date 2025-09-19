@@ -93,14 +93,14 @@
     return `
       <div class="mt-2">
         <strong>${escapeHtml(title)}</strong>
-        <ul class="compact-list">${items.map((i) => `<li>${escapeHtml(String(i))}</li>`).join('')}</ul>
+        <ul class="list-disc pl-5 text-sm">${items.map((i) => `<li>${escapeHtml(String(i))}</li>`).join('')}</ul>
       </div>`;
   }
   function renderChipsSection(title, items) {
     return `
       <div class="mt-2">
         <strong>${escapeHtml(title)}</strong>
-        <div class="chips">${items.map((i) => `<span class="chip blue">${escapeHtml(String(i))}</span>`).join('')}</div>
+        <div class="flex flex-wrap gap-2 mt-1">${items.map((i) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary text-white">${escapeHtml(String(i))}</span>`).join('')}</div>
       </div>`;
   }
   function renderGenericSection(title, content) {

@@ -24,7 +24,7 @@
     "128": "images/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cv.kroete.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cv.kroete.io; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
   },
   "host_permissions": [
     "https://cv.kroete.io/*"
